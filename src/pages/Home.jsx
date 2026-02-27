@@ -1,8 +1,7 @@
 ﻿
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser';
-import { auth, db, firebase } from '../lib/firebase.js';
+import { db, firebase } from '../lib/firebase.js';
 import '../styles/portfolio.css';
 
 const DEFAULT_PROFILE =
@@ -37,14 +36,12 @@ const DEFAULT_PROJECTS = [
 ];
 
 function Home() {
-  const navigate = useNavigate();
   const skillsRef = useRef(null);
   const profileInputRef = useRef(null);
   const coverInputRef = useRef(null);
 
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [selectedRating, setSelectedRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewMessage, setReviewMessage] = useState(null);
@@ -118,17 +115,7 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setCurrentUser(user || null);
-      if (user) {
-        loadReviews();
-      } else {
-        setReviews([]);
-        setReviewsLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
+    loadReviews();
   }, []);
 
   useEffect(() => {
@@ -261,17 +248,6 @@ function Home() {
     reader.readAsDataURL(file);
   };
 
-  const handleLogout = async () => {
-    if (!confirm('Are you sure you want to logout?')) return;
-    try {
-      await auth.signOut();
-      showMessage('Logged out successfully.', 'success');
-      setTimeout(() => navigate('/login'), 1000);
-    } catch (error) {
-      showMessage('Error logging out.', 'error');
-    }
-  };
-
   const loadReviews = async () => {
     setReviewsLoading(true);
     try {
@@ -318,7 +294,6 @@ function Home() {
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
-    if (!currentUser) return;
 
     if (selectedRating === 0) {
       showMessage('Please select a star rating.', 'error');
@@ -338,7 +313,7 @@ function Home() {
         rating: selectedRating,
         message: reviewText.trim(),
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: currentUser ? currentUser.uid : 'anonymous',
+        userId: 'anonymous',
         visible: true,
       };
 
@@ -458,18 +433,8 @@ function Home() {
           <div className="nav-actions">
             <div className="user-info" id="userInfo">
               <i className="fas fa-user-circle"></i>
-              <span>{currentUser ? currentUser.email : 'Guest'}</span>
+              <span>Guest</span>
             </div>
-            {!currentUser && (
-              <Link to="/login" className="btn-auth" id="loginBtn">
-                <i className="fas fa-sign-in-alt"></i> Login
-              </Link>
-            )}
-            {currentUser && (
-              <button className="btn-logout" id="logoutBtn" onClick={handleLogout}>
-                <i className="fas fa-sign-out-alt"></i> Logout
-              </button>
-            )}
           </div>
         </div>
       </nav>
@@ -822,137 +787,111 @@ function Home() {
                 </div>
               )}
 
-              {!currentUser && (
-                <div className="message info">
-                  <i className="fas fa-info-circle"></i> Please{' '}
-                  <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                    login
-                  </Link>{' '}
-                  to submit a review.
+              <form id="reviewForm" onSubmit={handleReviewSubmit}>
+                <div className="form-group">
+                  <label htmlFor="reviewerName" className="form-label">
+                    Your Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="reviewerName"
+                    className="form-input"
+                    placeholder="Enter your name"
+                    required
+                    value={reviewName}
+                    onChange={(e) => setReviewName(e.target.value)}
+                  />
                 </div>
-              )}
 
-              {currentUser && (
-                <form id="reviewForm" onSubmit={handleReviewSubmit}>
-                  <div className="form-group">
-                    <label htmlFor="reviewerName" className="form-label">
-                      Your Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="reviewerName"
-                      className="form-input"
-                      placeholder="Enter your name"
-                      required
-                      value={reviewName}
-                      onChange={(e) => setReviewName(e.target.value)}
-                    />
-                  </div>
+                <div className="form-group">
+                  <label htmlFor="reviewerEmail" className="form-label">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    id="reviewerEmail"
+                    className="form-input"
+                    placeholder="Enter your email"
+                    required
+                    value={reviewEmail}
+                    onChange={(e) => setReviewEmail(e.target.value)}
+                  />
+                </div>
 
-                  <div className="form-group">
-                    <label htmlFor="reviewerEmail" className="form-label">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      id="reviewerEmail"
-                      className="form-input"
-                      placeholder="Enter your email"
-                      required
-                      value={reviewEmail}
-                      onChange={(e) => setReviewEmail(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Rating *</label>
-                    <div
-                      className="star-rating"
-                      id="starRating"
-                      onMouseLeave={() => setHoverRating(0)}
-                    >
-                      {Array.from({ length: 5 }).map((_, idx) => {
-                        const ratingValue = idx + 1;
-                        const active = ratingValue <= displayRating;
-                        return (
-                          <span
-                            key={`rate-${ratingValue}`}
-                            className={`star ${active ? 'active' : ''}`}
-                            onClick={() => setSelectedRating(ratingValue)}
-                            onMouseEnter={() => setHoverRating(ratingValue)}
-                          >
-                            <i
-                              className={`fa-${active ? 'solid' : 'regular'} fa-star`}
-                            ></i>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="reviewText" className="form-label">
-                      Your Review *
-                    </label>
-                    <textarea
-                      id="reviewText"
-                      className="form-textarea"
-                      rows="4"
-                      placeholder="Share your thoughts about my work..."
-                      required
-                      value={reviewText}
-                      onChange={(e) => setReviewText(e.target.value)}
-                    ></textarea>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    style={{ width: '100%' }}
-                    disabled={submittingReview}
+                <div className="form-group">
+                  <label className="form-label">Rating *</label>
+                  <div
+                    className="star-rating"
+                    id="starRating"
+                    onMouseLeave={() => setHoverRating(0)}
                   >
-                    {submittingReview ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin"></i> Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-paper-plane"></i> Submit Review
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
+                    {Array.from({ length: 5 }).map((_, idx) => {
+                      const ratingValue = idx + 1;
+                      const active = ratingValue <= displayRating;
+                      return (
+                        <span
+                          key={`rate-${ratingValue}`}
+                          className={`star ${active ? 'active' : ''}`}
+                          onClick={() => setSelectedRating(ratingValue)}
+                          onMouseEnter={() => setHoverRating(ratingValue)}
+                        >
+                          <i
+                            className={`fa-${active ? 'solid' : 'regular'} fa-star`}
+                          ></i>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="reviewText" className="form-label">
+                    Your Review *
+                  </label>
+                  <textarea
+                    id="reviewText"
+                    className="form-textarea"
+                    rows="4"
+                    placeholder="Share your thoughts about my work..."
+                    required
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                  ></textarea>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                  disabled={submittingReview}
+                >
+                  {submittingReview ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i> Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-paper-plane"></i> Submit Review
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
 
             <div className="reviews-list" id="reviewsList">
-              {!currentUser && (
-                <div className="message info">
-                  <i className="fas fa-info-circle"></i> Please{' '}
-                  <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                    login
-                  </Link>{' '}
-                  to view reviews.
-                </div>
-              )}
-
-              {currentUser && reviewsLoading && (
+              {reviewsLoading && (
                 <div className="loading">
                   <i className="fas fa-spinner fa-spin"></i> Loading reviews...
                 </div>
               )}
 
-              {currentUser && !reviewsLoading && reviews.length === 0 && (
+              {!reviewsLoading && reviews.length === 0 && (
                 <div className="message info">No reviews yet. Be the first to leave one!</div>
               )}
 
-              {currentUser &&
-                !reviewsLoading &&
+              {!reviewsLoading &&
                 reviews.map(({ id, data }) => {
-                  const canDelete =
-                    currentUser &&
-                    (currentUser.uid === data.userId ||
-                      currentUser.email === 'mk9658173@gmail.com');
+                  const canDelete = false;
 
                   const date = data.timestamp
                     ? new Date(data.timestamp.toDate()).toLocaleDateString()

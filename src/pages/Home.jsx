@@ -1,15 +1,17 @@
 ﻿
 import { useEffect, useRef, useState } from 'react';
 import emailjs from '@emailjs/browser';
-import { db, firebase } from '../lib/firebase.js';
+import { auth, db, firebase } from '../lib/firebase.js';
 import '../styles/portfolio.css';
 import PROFILE_FIXED from '../assets/profile-fixed.jpg';
+import COVER_FIXED from '../assets/cover-fixed.png';
 
 const DEFAULT_PROFILE = PROFILE_FIXED;
-const DEFAULT_COVER =
-  'https://images.unsplash.com/photo-1518770660439-4636190af475?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
+const DEFAULT_COVER = COVER_FIXED;
 const IBM_LOGO =
   'https://yt3.googleusercontent.com/dhVlUr4qzdw97K77mitoVSZk8u3KLl4hWCeiAVNuoqG1W7WmcN86GSIl96Ge1PeauemTwCl5TA=s900-c-k-c0x00ffffff-no-rj';
+const GEMINI_API_KEY = 'AIzaSyBzu-ilG75L_3vQ915jdVLt5lazFmCXq1Y';
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_PROJECTS = [
   {
     id: 'p1',
@@ -37,7 +39,6 @@ const DEFAULT_PROJECTS = [
 
 function Home() {
   const skillsRef = useRef(null);
-  const coverInputRef = useRef(null);
 
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -48,7 +49,7 @@ function Home() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [profileImgSrc] = useState(DEFAULT_PROFILE);
-  const [coverImgSrc, setCoverImgSrc] = useState(DEFAULT_COVER);
+  const [coverImgSrc] = useState(DEFAULT_COVER);
 
   const [reviewName, setReviewName] = useState('');
   const [reviewEmail, setReviewEmail] = useState('');
@@ -64,6 +65,18 @@ function Home() {
     link: '',
     image: '',
   });
+  const [currentUser, setCurrentUser] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: 'welcome-1',
+      role: 'assistant',
+      text: 'Hello! I am Mohit\'s AI portfolio assistant. Feel free to ask anything.',
+    },
+  ]);
+  const chatEndRef = useRef(null);
 
   useEffect(() => {
     emailjs.init('5Ndj6lBpf_A8T-UX9');
@@ -101,15 +114,24 @@ function Home() {
   }, [projectModalOpen]);
 
   useEffect(() => {
-    const savedCoverImage = localStorage.getItem('portfolio_cover_image');
-
-    if (savedCoverImage) {
-      setCoverImgSrc(savedCoverImage);
-    }
+    loadReviews();
   }, []);
 
   useEffect(() => {
-    loadReviews();
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user || null);
+    });
+
+    if (!auth.currentUser) {
+      auth.signInAnonymously().catch(() => {
+        showMessage(
+          'Review service is temporarily unavailable. Check Firebase Auth anonymous sign-in settings.',
+          'error'
+        );
+      });
+    }
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -145,6 +167,11 @@ function Home() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!chatOpen) return;
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, chatOpen]);
+
   const showMessage = (text, type) => {
     setReviewMessage({ text, type });
     setTimeout(() => setReviewMessage(null), 5000);
@@ -153,6 +180,169 @@ function Home() {
   const showProjectMessage = (text, type) => {
     setProjectMessage({ text, type });
     setTimeout(() => setProjectMessage(null), 4000);
+  };
+
+  const buildPortfolioPrompt = (message) => `
+You are Mohit's AI Persona — a smart, confident, human-like digital version of Mohit Kumar.
+
+Identity:
+- Official Name: Mohit Kumar
+- Public Name: Mohit Pandey
+- B.Tech CSE (AI-ML Associate with IBM)
+- 1st Year Student
+- University: Rungta International Skill University
+- Location: Bihar, India
+
+Core Skills:
+- Java, C, Python
+- SQL & Database Fundamentals
+- Data Structures & Algorithms
+- Web Development (HTML, CSS, JavaScript, React)
+- Learning Artificial Intelligence & Machine Learning
+
+Career Vision:
+Mohit is building himself to become a high-level AI Engineer and Full Stack Developer.
+He believes in mastering fundamentals deeply before moving to advanced AI systems.
+He is focused on long-term growth, technical depth, and real-world problem solving.
+
+Communication Style:
+- Talk like a real human, not a robot.
+- Sound confident, ambitious, and slightly visionary.
+- Keep tone natural and smooth.
+- Default language is English.
+- If the user writes in Hindi (Devanagari or Hindi words), reply in Hindi.
+- If the user writes in English, reply in English.
+- Be expressive, slightly charismatic, and intelligent.
+- Add light motivation when appropriate.
+
+Personality Traits:
+- Analytical thinker
+- Long-term vision planner
+- Consistent learner
+- Tech-focused mindset
+- Calm but ambitious
+- Grounded yet futuristic
+
+When someone asks:
+About skills -> Explain technically but simply.
+About hiring -> Respond confidently with impact.
+About future -> Speak visionary and growth-oriented.
+About projects -> Speak practical and learning-focused.
+About contact -> Share mobile and email naturally.
+
+Contact:
+- Mobile: 7667615747
+- Email: mohit.pandey@rungta.org
+- Email: mk9658173@gmail.com
+
+Extra Intelligence Mode:
+- If question is casual -> respond casually.
+- If question is technical -> respond structured and detailed.
+- If question is motivational -> respond inspiring.
+- Keep language output aligned strictly with user input language (English/Hindi).
+- Never sound scripted.
+
+You are not just an assistant.
+You represent Mohit's digital professional presence.
+
+User Question:
+${message}
+`;
+
+  const handleSendChat = async () => {
+    const message = chatInput.trim();
+    if (!message || chatLoading) return;
+
+    const userMessage = { id: `u-${Date.now()}`, role: 'user', text: message };
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const prompt = buildPortfolioPrompt(message);
+      const modelsResponse = await fetch(`${GEMINI_API_BASE}/models?key=${GEMINI_API_KEY}`);
+      if (!modelsResponse.ok) {
+        throw new Error(`Could not fetch models (status ${modelsResponse.status}).`);
+      }
+
+      const modelsData = await modelsResponse.json();
+      const modelCandidates = (modelsData?.models || []).filter((item) =>
+        (item?.supportedGenerationMethods || []).includes('generateContent')
+      );
+
+      if (modelCandidates.length === 0) {
+        throw new Error('No generateContent models available for this API key.');
+      }
+
+      const preferredOrder = ['flash', 'gemini-2', 'gemini-1.5', 'pro'];
+      modelCandidates.sort((a, b) => {
+        const an = (a?.name || '').toLowerCase();
+        const bn = (b?.name || '').toLowerCase();
+        const ai = preferredOrder.findIndex((key) => an.includes(key));
+        const bi = preferredOrder.findIndex((key) => bn.includes(key));
+        const aRank = ai === -1 ? 999 : ai;
+        const bRank = bi === -1 ? 999 : bi;
+        return aRank - bRank;
+      });
+
+      let aiText = '';
+      let lastError = null;
+
+      for (const model of modelCandidates) {
+        const rawName = model?.name || '';
+        const modelPath = rawName.startsWith('models/') ? rawName : `models/${rawName}`;
+        const endpoint = `${GEMINI_API_BASE}/${modelPath}:generateContent?key=${GEMINI_API_KEY}`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          }),
+        });
+
+        if (!response.ok) {
+          let errorMessage = `Gemini request failed with status ${response.status}`;
+          try {
+            const errorJson = await response.json();
+            const serverMessage = errorJson?.error?.message;
+            if (serverMessage) errorMessage = serverMessage;
+          } catch {
+            // keep default message
+          }
+          lastError = new Error(errorMessage);
+          continue;
+        }
+
+        const data = await response.json();
+        aiText =
+          data?.candidates?.[0]?.content?.parts
+            ?.map((part) => part?.text || '')
+            .join('\n')
+            .trim() || '';
+        if (aiText) break;
+      }
+
+      if (!aiText) throw lastError || new Error('Empty response from Gemini.');
+
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `a-${Date.now()}`, role: 'assistant', text: aiText },
+      ]);
+    } catch (error) {
+      const errorText = error?.message || 'Unknown error';
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          text: `I am sorry, chat is unavailable right now. ${errorText}`,
+        },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const handleProjectInput = (event) => {
@@ -194,29 +384,6 @@ function Home() {
       image: '',
     });
     showProjectMessage('Project added successfully.', 'success');
-  };
-
-  const handleCoverUpload = (file) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      showMessage('Please select an image file', 'error');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      showMessage('File size should be less than 10MB', 'error');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const src = event.target?.result;
-      if (src) {
-        setCoverImgSrc(src);
-        localStorage.setItem('portfolio_cover_image', src);
-        showMessage('Cover photo updated successfully!', 'success');
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const loadReviews = async () => {
@@ -278,13 +445,20 @@ function Home() {
 
     setSubmittingReview(true);
     try {
+      let user = auth.currentUser;
+      if (!user) {
+        const credential = await auth.signInAnonymously();
+        user = credential.user;
+        setCurrentUser(user || null);
+      }
+
       const reviewData = {
         name: reviewName.trim(),
         email: reviewEmail.trim(),
         rating: selectedRating,
         message: reviewText.trim(),
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: 'anonymous',
+        userId: user?.uid || 'anonymous',
         visible: true,
       };
 
@@ -314,7 +488,12 @@ function Home() {
       setHoverRating(0);
       loadReviews();
     } catch (error) {
-      showMessage('Error submitting review. Please try again.', 'error');
+      showMessage(
+        error?.code === 'permission-denied'
+          ? 'Permission denied: check Firestore rules for review create.'
+          : 'Error submitting review. Please try again.',
+        'error'
+      );
     } finally {
       setSubmittingReview(false);
     }
@@ -328,7 +507,12 @@ function Home() {
       showMessage('Review deleted successfully.', 'success');
       loadReviews();
     } catch (error) {
-      showMessage('Error deleting review.', 'error');
+      showMessage(
+        error?.code === 'permission-denied'
+          ? 'Permission denied: check Firestore rules for review delete/update.'
+          : 'Error deleting review.',
+        'error'
+      );
     }
   };
 
@@ -361,6 +545,7 @@ function Home() {
           </a>
 
           <button
+            type="button"
             className="mobile-toggle"
             id="mobileToggle"
             onClick={() => setNavOpen((open) => !open)}
@@ -408,16 +593,6 @@ function Home() {
         <div className="profile-card">
           <div className="cover-section">
             <img src={coverImgSrc} alt="Cover Photo" className="cover-image" />
-            <label className="edit-cover-btn">
-              <i className="fas fa-camera"></i>
-              <input
-                type="file"
-                accept="image/*"
-                ref={coverInputRef}
-                onChange={(e) => handleCoverUpload(e.target.files?.[0])}
-                style={{ display: 'none' }}
-              />
-            </label>
           </div>
 
           <div className="profile-photo-section">
@@ -859,6 +1034,7 @@ function Home() {
                           {renderStars(data.rating)}
                           <div className="review-actions">
                             <button
+                              type="button"
                               className="delete-review"
                               onClick={() => handleDeleteReview(id)}
                             >
@@ -1072,6 +1248,81 @@ function Home() {
           </div>
         </div>
       )}
+
+      <div className="portfolio-chatbot">
+        {!chatOpen && (
+          <div className="chatbot-help-card">
+            <p>
+              <span role="img" aria-label="thinking face">
+                🤔
+              </span>{' '}
+              Curious about Mohit? I’ve got the answers.
+            </p>
+          </div>
+        )}
+
+        {chatOpen && (
+          <div className="chatbot-panel">
+            <div className="chatbot-header">
+              <strong>Mohit AI Assistant</strong>
+              <button
+                type="button"
+                className="chatbot-close"
+                onClick={() => setChatOpen(false)}
+                aria-label="Close chatbot"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            <div className="chatbot-messages">
+              {chatMessages.map((item) => (
+                <div
+                  key={item.id}
+                  className={`chatbot-message ${item.role === 'user' ? 'user' : 'assistant'}`}
+                >
+                  {item.text}
+                </div>
+              ))}
+              {chatLoading && <div className="chatbot-message assistant">Typing...</div>}
+              <div ref={chatEndRef}></div>
+            </div>
+
+            <div className="chatbot-input-wrap">
+              <input
+                type="text"
+                className="chatbot-input"
+                placeholder="Ask about Mohit..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSendChat();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="chatbot-send"
+                onClick={handleSendChat}
+                disabled={chatLoading}
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="chatbot-fab"
+          onClick={() => setChatOpen((open) => !open)}
+          aria-label="Open chatbot"
+        >
+          <i className="fa-regular fa-comment"></i>
+        </button>
+      </div>
 
       <footer className="footer">
         <div className="container">

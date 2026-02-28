@@ -1,12 +1,11 @@
 ﻿
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser';
-import { auth, db, firebase } from '../lib/firebase.js';
+import { db, firebase } from '../lib/firebase.js';
 import '../styles/portfolio.css';
+import PROFILE_FIXED from '../assets/profile-fixed.jpg';
 
-const DEFAULT_PROFILE =
-  'https://ui-avatars.com/api/?name=Mohit+Pandey&size=400&background=6366f1&color=fff&bold=true';
+const DEFAULT_PROFILE = PROFILE_FIXED;
 const DEFAULT_COVER =
   'https://images.unsplash.com/photo-1518770660439-4636190af475?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
 const IBM_LOGO =
@@ -37,21 +36,18 @@ const DEFAULT_PROJECTS = [
 ];
 
 function Home() {
-  const navigate = useNavigate();
   const skillsRef = useRef(null);
-  const profileInputRef = useRef(null);
   const coverInputRef = useRef(null);
 
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [selectedRating, setSelectedRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewMessage, setReviewMessage] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [profileImgSrc, setProfileImgSrc] = useState(DEFAULT_PROFILE);
+  const [profileImgSrc] = useState(DEFAULT_PROFILE);
   const [coverImgSrc, setCoverImgSrc] = useState(DEFAULT_COVER);
 
   const [reviewName, setReviewName] = useState('');
@@ -105,12 +101,7 @@ function Home() {
   }, [projectModalOpen]);
 
   useEffect(() => {
-    const savedProfileImage = localStorage.getItem('portfolio_profile_image');
     const savedCoverImage = localStorage.getItem('portfolio_cover_image');
-
-    if (savedProfileImage) {
-      setProfileImgSrc(savedProfileImage);
-    }
 
     if (savedCoverImage) {
       setCoverImgSrc(savedCoverImage);
@@ -118,17 +109,7 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setCurrentUser(user || null);
-      if (user) {
-        loadReviews();
-      } else {
-        setReviews([]);
-        setReviewsLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
+    loadReviews();
   }, []);
 
   useEffect(() => {
@@ -215,29 +196,6 @@ function Home() {
     showProjectMessage('Project added successfully.', 'success');
   };
 
-  const handleProfileUpload = (file) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      showMessage('Please select an image file', 'error');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      showMessage('File size should be less than 5MB', 'error');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const src = event.target?.result;
-      if (src) {
-        setProfileImgSrc(src);
-        localStorage.setItem('portfolio_profile_image', src);
-        showMessage('Profile photo updated successfully!', 'success');
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleCoverUpload = (file) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -259,17 +217,6 @@ function Home() {
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleLogout = async () => {
-    if (!confirm('Are you sure you want to logout?')) return;
-    try {
-      await auth.signOut();
-      showMessage('Logged out successfully.', 'success');
-      setTimeout(() => navigate('/login'), 1000);
-    } catch (error) {
-      showMessage('Error logging out.', 'error');
-    }
   };
 
   const loadReviews = async () => {
@@ -318,7 +265,6 @@ function Home() {
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
-    if (!currentUser) return;
 
     if (selectedRating === 0) {
       showMessage('Please select a star rating.', 'error');
@@ -338,7 +284,7 @@ function Home() {
         rating: selectedRating,
         message: reviewText.trim(),
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: currentUser ? currentUser.uid : 'anonymous',
+        userId: 'anonymous',
         visible: true,
       };
 
@@ -455,22 +401,6 @@ function Home() {
             </li>
           </ul>
 
-          <div className="nav-actions">
-            <div className="user-info" id="userInfo">
-              <i className="fas fa-user-circle"></i>
-              <span>{currentUser ? currentUser.email : 'Guest'}</span>
-            </div>
-            {!currentUser && (
-              <Link to="/login" className="btn-auth" id="loginBtn">
-                <i className="fas fa-sign-in-alt"></i> Login
-              </Link>
-            )}
-            {currentUser && (
-              <button className="btn-logout" id="logoutBtn" onClick={handleLogout}>
-                <i className="fas fa-sign-out-alt"></i> Logout
-              </button>
-            )}
-          </div>
         </div>
       </nav>
 
@@ -492,21 +422,7 @@ function Home() {
 
           <div className="profile-photo-section">
             <div className="profile-photo-container">
-              <img
-                src={profileImgSrc}
-                alt="Mohit Pandey"
-                className="profile-image"
-              />
-              <label className="edit-profile-btn">
-                <i className="fas fa-camera"></i>
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={profileInputRef}
-                  onChange={(e) => handleProfileUpload(e.target.files?.[0])}
-                  style={{ display: 'none' }}
-                />
-              </label>
+              <img src={profileImgSrc} alt="Mohit Pandey" className="profile-image" />
             </div>
           </div>
 
@@ -822,18 +738,7 @@ function Home() {
                 </div>
               )}
 
-              {!currentUser && (
-                <div className="message info">
-                  <i className="fas fa-info-circle"></i> Please{' '}
-                  <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                    login
-                  </Link>{' '}
-                  to submit a review.
-                </div>
-              )}
-
-              {currentUser && (
-                <form id="reviewForm" onSubmit={handleReviewSubmit}>
+              <form id="reviewForm" onSubmit={handleReviewSubmit}>
                   <div className="form-group">
                     <label htmlFor="reviewerName" className="form-label">
                       Your Name *
@@ -921,39 +826,22 @@ function Home() {
                       </>
                     )}
                   </button>
-                </form>
-              )}
+              </form>
             </div>
 
             <div className="reviews-list" id="reviewsList">
-              {!currentUser && (
-                <div className="message info">
-                  <i className="fas fa-info-circle"></i> Please{' '}
-                  <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                    login
-                  </Link>{' '}
-                  to view reviews.
-                </div>
-              )}
-
-              {currentUser && reviewsLoading && (
+              {reviewsLoading && (
                 <div className="loading">
                   <i className="fas fa-spinner fa-spin"></i> Loading reviews...
                 </div>
               )}
 
-              {currentUser && !reviewsLoading && reviews.length === 0 && (
+              {!reviewsLoading && reviews.length === 0 && (
                 <div className="message info">No reviews yet. Be the first to leave one!</div>
               )}
 
-              {currentUser &&
-                !reviewsLoading &&
+              {!reviewsLoading &&
                 reviews.map(({ id, data }) => {
-                  const canDelete =
-                    currentUser &&
-                    (currentUser.uid === data.userId ||
-                      currentUser.email === 'mk9658173@gmail.com');
-
                   const date = data.timestamp
                     ? new Date(data.timestamp.toDate()).toLocaleDateString()
                     : 'Recently';
@@ -970,14 +858,12 @@ function Home() {
                         <div>
                           {renderStars(data.rating)}
                           <div className="review-actions">
-                            {canDelete && (
-                              <button
-                                className="delete-review"
-                                onClick={() => handleDeleteReview(id)}
-                              >
-                                <i className="fas fa-trash"></i> Delete
-                              </button>
-                            )}
+                            <button
+                              className="delete-review"
+                              onClick={() => handleDeleteReview(id)}
+                            >
+                              <i className="fas fa-trash"></i> Delete
+                            </button>
                           </div>
                         </div>
                       </div>

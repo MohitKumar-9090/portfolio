@@ -9,7 +9,9 @@ const DEFAULT_PROFILE = PROFILE_FIXED;
 const DEFAULT_COVER = COVER_FIXED;
 const IBM_LOGO =
   'https://yt3.googleusercontent.com/dhVlUr4qzdw97K77mitoVSZk8u3KLl4hWCeiAVNuoqG1W7WmcN86GSIl96Ge1PeauemTwCl5TA=s900-c-k-c0x00ffffff-no-rj';
-const CHAT_API_BASE = (import.meta.env.VITE_CHAT_API_URL || '').replace(/\/$/, '');
+const CHAT_API_BASE = (
+  import.meta.env.VITE_CHAT_API_URL || 'https://portfolio-n4ko.onrender.com'
+).replace(/\/$/, '');
 const DEFAULT_PROJECTS = [
   {
     id: 'p1',

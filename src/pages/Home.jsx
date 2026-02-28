@@ -164,72 +164,42 @@ function Home() {
     setTimeout(() => setProjectMessage(null), 4000);
   };
 
-  const buildPortfolioPrompt = (message) => `
-You are Mohit's AI Persona — a smart, confident, human-like digital version of Mohit Kumar.
-
-Identity:
-- Official Name: Mohit Kumar
-- Public Name: Mohit Pandey
-- B.Tech CSE (AI-ML Associate with IBM)
-- 1st Year Student
-- University: Rungta International Skill University
-- Location: Bihar, India
-
-Core Skills:
-- Java, C, Python
-- SQL & Database Fundamentals
-- Data Structures & Algorithms
-- Web Development (HTML, CSS, JavaScript, React)
-- Learning Artificial Intelligence & Machine Learning
-
-Career Vision:
-Mohit is building himself to become a high-level AI Engineer and Full Stack Developer.
-He believes in mastering fundamentals deeply before moving to advanced AI systems.
-He is focused on long-term growth, technical depth, and real-world problem solving.
-
-Communication Style:
-- Talk like a real human, not a robot.
-- Sound confident, ambitious, and slightly visionary.
-- Keep tone natural and smooth.
-- Default language is English.
-- If the user writes in Hindi (Devanagari or Hindi words), reply in Hindi.
-- If the user writes in English, reply in English.
-- Be expressive, slightly charismatic, and intelligent.
-- Add light motivation when appropriate.
-
-Personality Traits:
-- Analytical thinker
-- Long-term vision planner
-- Consistent learner
-- Tech-focused mindset
-- Calm but ambitious
-- Grounded yet futuristic
-
-When someone asks:
-About skills -> Explain technically but simply.
-About hiring -> Respond confidently with impact.
-About future -> Speak visionary and growth-oriented.
-About projects -> Speak practical and learning-focused.
-About contact -> Share mobile and email naturally.
-
-Contact:
-- Mobile: 7667615747
-- Email: mohit.pandey@rungta.org
-- Email: mk9658173@gmail.com
-
-Extra Intelligence Mode:
-- If question is casual -> respond casually.
-- If question is technical -> respond structured and detailed.
-- If question is motivational -> respond inspiring.
-- Keep language output aligned strictly with user input language (English/Hindi).
-- Never sound scripted.
-
-You are not just an assistant.
-You represent Mohit's digital professional presence.
-
-User Question:
-${message}
-`;
+  const buildPortfolioData = () => ({
+    identity: {
+      officialName: 'Mohit Kumar',
+      publicName: 'Mohit Pandey',
+      education: 'B.Tech CSE (AI-ML Associate with IBM)',
+      year: '1st Year Student',
+      university: 'Rungta International Skill University',
+      location: 'Bihar, India',
+    },
+    about:
+      'Computer Science Engineering student specializing in AI and ML, focused on building real-world intelligent solutions.',
+    skills: [
+      'Java',
+      'C',
+      'Python',
+      'SQL',
+      'Data Structures and Algorithms',
+      'HTML',
+      'CSS',
+      'JavaScript',
+      'React',
+      'Artificial Intelligence',
+      'Machine Learning',
+    ],
+    projects: projects.map((project) => ({
+      title: project.title,
+      category: project.category,
+      description: project.description,
+      stack: project.stack,
+      link: project.link || '',
+    })),
+    contact: {
+      phone: '7667615747',
+      emails: ['mohit.pandey@rungta.org', 'mk9658173@gmail.com'],
+    },
+  });
 
   const handleSendChat = async () => {
     const message = chatInput.trim();
@@ -245,13 +215,17 @@ ${message}
         throw new Error('Chat backend is not configured.');
       }
 
-      const prompt = buildPortfolioPrompt(message);
+      const portfolioData = buildPortfolioData();
       const response = await fetch(`${CHAT_API_BASE}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          message,
+          prompt: message,
+          portfolioData,
+        }),
       });
 
       const data = await response.json().catch(() => ({}));

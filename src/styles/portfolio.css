@@ -233,7 +233,7 @@ p {
    HERO SECTION - LinkedIn Style Profile
 ======================================== */
 .hero {
-  padding: 8rem 0 3rem;
+  padding: 5rem 0 3rem;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   position: relative;
   overflow: hidden;
@@ -359,6 +359,28 @@ p {
   align-items: center;
   gap: 0.5rem;
   color: var(--gray);
+}
+
+.hero-cta {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 1rem;
+}
+
+.resume-btn {
+  min-width: 220px;
+  justify-content: center;
+}
+
+.resume-btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.resume-btn.disabled:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 /* Floating Badges */
@@ -1418,6 +1440,14 @@ section {
     gap: 0.8rem;
   }
 
+  .hero-cta {
+    justify-content: flex-start;
+  }
+
+  .resume-btn {
+    min-width: 0;
+  }
+
   .review-form {
     padding: 1.2rem;
     margin-bottom: 2rem;
@@ -1504,6 +1534,10 @@ section {
 
   .floating-badges {
     flex-direction: column;
+  }
+
+  .hero-cta {
+    justify-content: center;
   }
 
   .badge {

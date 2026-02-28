@@ -1,6 +1,7 @@
 ﻿
 import { useEffect, useRef, useState } from 'react';
 import emailjs from '@emailjs/browser';
+import { jsPDF } from 'jspdf';
 import '../styles/portfolio.css';
 import PROFILE_FIXED from '../assets/profile-fixed.jpg';
 import COVER_FIXED from '../assets/cover-fixed.png';
@@ -200,6 +201,175 @@ function Home() {
       emails: ['mohit.pandey@rungta.org', 'mk9658173@gmail.com'],
     },
   });
+
+  const handleDownloadResume = async () => {
+    const data = buildPortfolioData();
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 36;
+    const headerHeight = 165;
+    const gap = 20;
+    const leftColWidth = 175;
+    const rightColX = margin + leftColWidth + gap;
+    const rightColWidth = pageWidth - rightColX - margin;
+    let leftY = headerHeight + 24;
+    let rightY = headerHeight + 24;
+
+    const toDataUrl = async (src) => {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    };
+
+    const addSectionTitle = (text, x, y) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(79, 70, 229);
+      doc.text(text.toUpperCase(), x, y);
+      doc.setDrawColor(203, 213, 225);
+      doc.line(x, y + 8, x + (x === margin ? leftColWidth : rightColWidth), y + 8);
+      return y + 24;
+    };
+
+    const addWrappedText = (text, x, y, width, options = {}) => {
+      const {
+        fontSize = 10.5,
+        fontStyle = 'normal',
+        color = [51, 65, 85],
+        lineGap = 15,
+      } = options;
+      const value = String(text || '').trim();
+      if (!value) return y;
+      const lines = doc.splitTextToSize(value, width);
+      doc.setFont('helvetica', fontStyle);
+      doc.setFontSize(fontSize);
+      doc.setTextColor(color[0], color[1], color[2]);
+      doc.text(lines, x, y);
+      return y + lines.length * lineGap;
+    };
+
+    const name = data?.identity?.officialName || data?.identity?.publicName || 'Mohit Kumar';
+    const role = data?.identity?.education || 'B.Tech CSE (AI & ML)';
+    const location = data?.identity?.location || '';
+    const emails = Array.isArray(data?.contact?.emails) ? data.contact.emails : [];
+    const phone = data?.contact?.phone || '';
+
+    // Header
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, pageWidth, headerHeight, 'F');
+    doc.setFillColor(79, 70, 229);
+    doc.rect(0, headerHeight - 12, pageWidth, 12, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(30);
+    doc.text(name, margin, 58);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(13);
+    doc.text(role, margin, 84);
+    doc.setFontSize(10.5);
+    doc.setTextColor(226, 232, 240);
+    doc.text([location, phone, emails[0] || ''].filter(Boolean).join('  |  '), margin, 106);
+
+    try {
+      const imageData = await toDataUrl(profileImgSrc);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(pageWidth - margin - 88, 28, 88, 88, 10, 10, 'F');
+      doc.addImage(imageData, 'JPEG', pageWidth - margin - 84, 32, 80, 80);
+    } catch {
+      // Resume still downloads even if image conversion fails.
+    }
+
+    // Left column
+    leftY = addSectionTitle('Education', margin, leftY);
+    leftY = addWrappedText(`${data?.identity?.education || 'B.Tech CSE'}`, margin, leftY, leftColWidth, {
+      fontStyle: 'bold',
+      fontSize: 10.5,
+    });
+    leftY = addWrappedText(`${data?.identity?.year || ''}`, margin, leftY + 2, leftColWidth, {
+      fontSize: 10,
+      color: [71, 85, 105],
+    });
+    leftY = addWrappedText(`${data?.identity?.university || ''}`, margin, leftY + 2, leftColWidth, {
+      fontSize: 10,
+      color: [71, 85, 105],
+    });
+
+    leftY = addSectionTitle('Skills', margin, leftY + 12);
+    (data?.skills || []).slice(0, 14).forEach((skill) => {
+      leftY = addWrappedText(`- ${skill}`, margin, leftY, leftColWidth, {
+        fontSize: 10,
+        color: [51, 65, 85],
+      });
+    });
+
+    leftY = addSectionTitle('Contact & Links', margin, leftY + 12);
+    leftY = addWrappedText(`Phone: ${phone}`, margin, leftY, leftColWidth, { fontSize: 10 });
+    leftY = addWrappedText(`Email: ${emails[0] || ''}`, margin, leftY, leftColWidth, { fontSize: 10 });
+    leftY = addWrappedText('LinkedIn:', margin, leftY + 4, leftColWidth, {
+      fontSize: 10,
+      fontStyle: 'bold',
+    });
+    leftY = addWrappedText('linkedin.com/in/mohit-kumar-391838346', margin, leftY, leftColWidth, {
+      fontSize: 9.5,
+      color: [79, 70, 229],
+    });
+    leftY = addWrappedText('GitHub:', margin, leftY + 4, leftColWidth, {
+      fontSize: 10,
+      fontStyle: 'bold',
+    });
+    addWrappedText('github.com/MohitKumar-9090', margin, leftY, leftColWidth, {
+      fontSize: 9.5,
+      color: [79, 70, 229],
+    });
+
+    // Right column
+    rightY = addSectionTitle('Professional Summary', rightColX, rightY);
+    rightY = addWrappedText(
+      data?.about ||
+        'Technically driven Computer Science student focused on AI/ML and full-stack development.',
+      rightColX,
+      rightY,
+      rightColWidth,
+      { fontSize: 11, color: [51, 65, 85], lineGap: 16 }
+    );
+
+    rightY = addSectionTitle('Projects', rightColX, rightY + 10);
+    (data?.projects || []).slice(0, 5).forEach((project) => {
+      const title = [project?.title, project?.category ? `(${project.category})` : '']
+        .filter(Boolean)
+        .join(' ');
+      rightY = addWrappedText(title, rightColX, rightY, rightColWidth, {
+        fontStyle: 'bold',
+        fontSize: 11,
+        color: [30, 41, 59],
+      });
+      rightY = addWrappedText(project?.description || '', rightColX, rightY + 1, rightColWidth, {
+        fontSize: 10.5,
+        color: [71, 85, 105],
+      });
+      if (Array.isArray(project?.stack) && project.stack.length > 0) {
+        rightY = addWrappedText(`Tech: ${project.stack.join(', ')}`, rightColX, rightY + 1, rightColWidth, {
+          fontSize: 9.8,
+          color: [100, 116, 139],
+        });
+      }
+      if (project?.link) {
+        rightY = addWrappedText(`Link: ${project.link}`, rightColX, rightY + 1, rightColWidth, {
+          fontSize: 9.6,
+          color: [79, 70, 229],
+        });
+      }
+      rightY += 8;
+    });
+
+    doc.save('Mohit_Kumar_Resume.pdf');
+  };
 
   const handleSendChat = async () => {
     const message = chatInput.trim();
@@ -509,6 +679,12 @@ function Home() {
                 <i className="fas fa-phone"></i>
                 <span>+91 7667615747</span>
               </div>
+            </div>
+
+            <div className="hero-cta">
+              <button type="button" className="btn btn-primary resume-btn" onClick={handleDownloadResume}>
+                <i className="fas fa-download"></i> Download Resume
+              </button>
             </div>
 
             <div className="floating-badges">
@@ -1011,7 +1187,7 @@ function Home() {
                 <div>
                   <h4>LinkedIn</h4>
                   <a
-                    href="https://www.linkedin.com/in/mohit-pandey-391838346/"
+                    href="https://www.linkedin.com/in/mohit-kumar-391838346/"
                     target="_blank"
                     rel="noreferrer"
                   >

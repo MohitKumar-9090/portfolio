@@ -1,7 +1,6 @@
 ﻿
 import { useEffect, useRef, useState } from 'react';
 import emailjs from '@emailjs/browser';
-import { auth, db, firebase } from '../lib/firebase.js';
 import '../styles/portfolio.css';
 import PROFILE_FIXED from '../assets/profile-fixed.jpg';
 import COVER_FIXED from '../assets/cover-fixed.png';
@@ -10,8 +9,7 @@ const DEFAULT_PROFILE = PROFILE_FIXED;
 const DEFAULT_COVER = COVER_FIXED;
 const IBM_LOGO =
   'https://yt3.googleusercontent.com/dhVlUr4qzdw97K77mitoVSZk8u3KLl4hWCeiAVNuoqG1W7WmcN86GSIl96Ge1PeauemTwCl5TA=s900-c-k-c0x00ffffff-no-rj';
-const GEMINI_API_KEY = 'AIzaSyBzu-ilG75L_3vQ915jdVLt5lazFmCXq1Y';
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+const CHAT_API_BASE = (import.meta.env.VITE_CHAT_API_URL || '').replace(/\/$/, '');
 const DEFAULT_PROJECTS = [
   {
     id: 'p1',
@@ -65,7 +63,6 @@ function Home() {
     link: '',
     image: '',
   });
-  const [currentUser, setCurrentUser] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -115,23 +112,6 @@ function Home() {
 
   useEffect(() => {
     loadReviews();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setCurrentUser(user || null);
-    });
-
-    if (!auth.currentUser) {
-      auth.signInAnonymously().catch(() => {
-        showMessage(
-          'Review service is temporarily unavailable. Check Firebase Auth anonymous sign-in settings.',
-          'error'
-        );
-      });
-    }
-
-    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -259,72 +239,26 @@ ${message}
     setChatLoading(true);
 
     try {
+      if (!CHAT_API_BASE) {
+        throw new Error('Chat backend is not configured.');
+      }
+
       const prompt = buildPortfolioPrompt(message);
-      const modelsResponse = await fetch(`${GEMINI_API_BASE}/models?key=${GEMINI_API_KEY}`);
-      if (!modelsResponse.ok) {
-        throw new Error(`Could not fetch models (status ${modelsResponse.status}).`);
-      }
-
-      const modelsData = await modelsResponse.json();
-      const modelCandidates = (modelsData?.models || []).filter((item) =>
-        (item?.supportedGenerationMethods || []).includes('generateContent')
-      );
-
-      if (modelCandidates.length === 0) {
-        throw new Error('No generateContent models available for this API key.');
-      }
-
-      const preferredOrder = ['flash', 'gemini-2', 'gemini-1.5', 'pro'];
-      modelCandidates.sort((a, b) => {
-        const an = (a?.name || '').toLowerCase();
-        const bn = (b?.name || '').toLowerCase();
-        const ai = preferredOrder.findIndex((key) => an.includes(key));
-        const bi = preferredOrder.findIndex((key) => bn.includes(key));
-        const aRank = ai === -1 ? 999 : ai;
-        const bRank = bi === -1 ? 999 : bi;
-        return aRank - bRank;
+      const response = await fetch(`${CHAT_API_BASE}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
       });
 
-      let aiText = '';
-      let lastError = null;
-
-      for (const model of modelCandidates) {
-        const rawName = model?.name || '';
-        const modelPath = rawName.startsWith('models/') ? rawName : `models/${rawName}`;
-        const endpoint = `${GEMINI_API_BASE}/${modelPath}:generateContent?key=${GEMINI_API_KEY}`;
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          }),
-        });
-
-        if (!response.ok) {
-          let errorMessage = `Gemini request failed with status ${response.status}`;
-          try {
-            const errorJson = await response.json();
-            const serverMessage = errorJson?.error?.message;
-            if (serverMessage) errorMessage = serverMessage;
-          } catch {
-            // keep default message
-          }
-          lastError = new Error(errorMessage);
-          continue;
-        }
-
-        const data = await response.json();
-        aiText =
-          data?.candidates?.[0]?.content?.parts
-            ?.map((part) => part?.text || '')
-            .join('\n')
-            .trim() || '';
-        if (aiText) break;
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || `Chat request failed with status ${response.status}`);
       }
 
-      if (!aiText) throw lastError || new Error('Empty response from Gemini.');
+      const aiText = (data?.reply || '').trim();
+      if (!aiText) throw new Error('Empty response from chat backend.');
 
       setChatMessages((prev) => [
         ...prev,
@@ -389,40 +323,17 @@ ${message}
   const loadReviews = async () => {
     setReviewsLoading(true);
     try {
-      let snapshot;
-      try {
-        snapshot = await db
-          .collection('reviews')
-          .where('visible', '==', true)
-          .orderBy('timestamp', 'desc')
-          .limit(10)
-          .get();
-      } catch (orderError) {
-        snapshot = await db
-          .collection('reviews')
-          .where('visible', '==', true)
-          .limit(10)
-          .get();
+      if (!CHAT_API_BASE) {
+        throw new Error('Review backend is not configured.');
       }
 
-      if (snapshot.empty) {
-        setReviews([]);
-        setReviewsLoading(false);
-        return;
+      const response = await fetch(`${CHAT_API_BASE}/api/reviews`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || `Failed to load reviews (${response.status}).`);
       }
 
-      const reviewsArray = [];
-      snapshot.forEach((doc) => {
-        reviewsArray.push({ id: doc.id, data: doc.data() });
-      });
-
-      reviewsArray.sort((a, b) => {
-        const timeA = a.data.timestamp ? a.data.timestamp.toMillis() : 0;
-        const timeB = b.data.timestamp ? b.data.timestamp.toMillis() : 0;
-        return timeB - timeA;
-      });
-
-      setReviews(reviewsArray);
+      setReviews(Array.isArray(data?.reviews) ? data.reviews : []);
     } catch (error) {
       setReviews([]);
     } finally {
@@ -445,24 +356,26 @@ ${message}
 
     setSubmittingReview(true);
     try {
-      let user = auth.currentUser;
-      if (!user) {
-        const credential = await auth.signInAnonymously();
-        user = credential.user;
-        setCurrentUser(user || null);
+      if (!CHAT_API_BASE) {
+        throw new Error('Review backend is not configured.');
       }
 
-      const reviewData = {
-        name: reviewName.trim(),
-        email: reviewEmail.trim(),
-        rating: selectedRating,
-        message: reviewText.trim(),
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: user?.uid || 'anonymous',
-        visible: true,
-      };
-
-      await db.collection('reviews').add(reviewData);
+      const response = await fetch(`${CHAT_API_BASE}/api/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: reviewName.trim(),
+          email: reviewEmail.trim(),
+          rating: selectedRating,
+          message: reviewText.trim(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || `Failed to submit review (${response.status}).`);
+      }
 
       try {
         const templateParams = {
@@ -488,12 +401,7 @@ ${message}
       setHoverRating(0);
       loadReviews();
     } catch (error) {
-      showMessage(
-        error?.code === 'permission-denied'
-          ? 'Permission denied: check Firestore rules for review create.'
-          : 'Error submitting review. Please try again.',
-        'error'
-      );
+      showMessage(error?.message || 'Error submitting review. Please try again.', 'error');
     } finally {
       setSubmittingReview(false);
     }
@@ -503,16 +411,22 @@ ${message}
     if (!confirm('Are you sure you want to delete this review?')) return;
 
     try {
-      await db.collection('reviews').doc(reviewId).update({ visible: false });
+      if (!CHAT_API_BASE) {
+        throw new Error('Review backend is not configured.');
+      }
+
+      const response = await fetch(`${CHAT_API_BASE}/api/reviews/${reviewId}/hide`, {
+        method: 'PATCH',
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || `Failed to delete review (${response.status}).`);
+      }
+
       showMessage('Review deleted successfully.', 'success');
       loadReviews();
     } catch (error) {
-      showMessage(
-        error?.code === 'permission-denied'
-          ? 'Permission denied: check Firestore rules for review delete/update.'
-          : 'Error deleting review.',
-        'error'
-      );
+      showMessage(error?.message || 'Error deleting review.', 'error');
     }
   };
 
@@ -1017,8 +931,8 @@ ${message}
 
               {!reviewsLoading &&
                 reviews.map(({ id, data }) => {
-                  const date = data.timestamp
-                    ? new Date(data.timestamp.toDate()).toLocaleDateString()
+                  const date = data.timestampMs
+                    ? new Date(data.timestampMs).toLocaleDateString()
                     : 'Recently';
 
                   return (

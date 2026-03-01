@@ -21,7 +21,8 @@ const DEFAULT_PROJECTS = [
     description:
       'Resume screening tool that extracts skills and matches candidates with role-specific requirements.',
     stack: ['Python', 'NLP', 'Flask', 'React'],
-    link: 'https://github.com/',
+    webLink: 'https://dulcet-conkies-95e6f3.netlify.app/',
+    codeLink: 'https://github.com/MohitKumar-9090/ai-resume.anylzer.git',
     image:
       'https://images.unsplash.com/photo-1484417894907-623942c8ee29?auto=format&fit=crop&w=1200&q=80',
   },
@@ -32,11 +33,33 @@ const DEFAULT_PROJECTS = [
     description:
       'Face-recognition based attendance app with admin dashboard, attendance history, and analytics.',
     stack: ['React', 'Firebase', 'OpenCV'],
-    link: 'https://github.com/',
+    webLink: '',
+    codeLink: 'https://github.com/',
     image:
       'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80',
   },
 ];
+
+const normalizeProject = (project = {}) => {
+  const title = (project.title || '').trim();
+  const legacyLink = (project.link || '').trim();
+  let webLink = (project.webLink || '').trim();
+  let codeLink = (project.codeLink || legacyLink).trim();
+
+  if (title === 'AI Resume Analyzer') {
+    webLink = webLink || 'https://dulcet-conkies-95e6f3.netlify.app/';
+    if (!codeLink || codeLink === webLink) {
+      codeLink = 'https://github.com/MohitKumar-9090/ai-resume.anylzer.git';
+    }
+  }
+
+  return {
+    ...project,
+    stack: Array.isArray(project.stack) ? project.stack : [],
+    webLink,
+    codeLink,
+  };
+};
 
 function Home() {
   const skillsRef = useRef(null);
@@ -55,7 +78,9 @@ function Home() {
   const [reviewName, setReviewName] = useState('');
   const [reviewEmail, setReviewEmail] = useState('');
   const [reviewText, setReviewText] = useState('');
-  const [projects, setProjects] = useState(DEFAULT_PROJECTS);
+  const [projects, setProjects] = useState(() =>
+    DEFAULT_PROJECTS.map((project) => normalizeProject(project))
+  );
   const [projectMessage, setProjectMessage] = useState(null);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectForm, setProjectForm] = useState({
@@ -63,7 +88,8 @@ function Home() {
     category: 'Web App',
     description: '',
     stack: '',
-    link: '',
+    webLink: '',
+    codeLink: '',
     image: '',
   });
   const [chatOpen, setChatOpen] = useState(false);
@@ -89,10 +115,10 @@ function Home() {
     try {
       const parsed = JSON.parse(savedProjects);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        setProjects(parsed);
+        setProjects(parsed.map((project) => normalizeProject(project)));
       }
     } catch {
-      setProjects(DEFAULT_PROJECTS);
+      setProjects(DEFAULT_PROJECTS.map((project) => normalizeProject(project)));
     }
   }, []);
 
@@ -194,7 +220,7 @@ function Home() {
       category: project.category,
       description: project.description,
       stack: project.stack,
-      link: project.link || '',
+      link: project.webLink || project.codeLink || project.link || '',
     })),
     contact: {
       phone: '7667615747',
@@ -449,18 +475,20 @@ function Home() {
       category: projectForm.category.trim() || 'Web App',
       description: projectForm.description.trim(),
       stack: stackItems,
-      link: projectForm.link.trim(),
+      webLink: projectForm.webLink.trim(),
+      codeLink: projectForm.codeLink.trim(),
       image: projectForm.image.trim(),
     };
 
-    setProjects((prev) => [newProject, ...prev]);
+    setProjects((prev) => [normalizeProject(newProject), ...prev]);
     setProjectModalOpen(false);
     setProjectForm({
       title: '',
       category: 'Web App',
       description: '',
       stack: '',
-      link: '',
+      webLink: '',
+      codeLink: '',
       image: '',
     });
     showProjectMessage('Project added successfully.', 'success');
@@ -911,48 +939,93 @@ function Home() {
           </div>
 
           <div className="projects-grid">
-            {projects.map((project) => (
-              <article className="project-card" key={project.id}>
-                <div className="project-thumb">
-                  {project.image ? (
-                    <img src={project.image} alt={project.title} />
-                  ) : (
-                    <div className="project-thumb-fallback">
-                      <i className="fas fa-code"></i>
-                    </div>
-                  )}
-                  <span className="project-category">{project.category}</span>
-                </div>
-                <div className="project-body">
-                  <h3>{project.title}</h3>
-                  <p>{project.description}</p>
-                  <div className="project-stack">
-                    {project.stack.length > 0 ? (
-                      project.stack.map((item) => (
-                        <span key={`${project.id}-${item}`} className="project-tag">
-                          {item}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="project-tag">General</span>
-                    )}
-                  </div>
+            {projects.map((project) => {
+              const webLink = (project.webLink || '').trim();
+              const codeLink = (project.codeLink || project.link || '').trim();
+              const hasPosterLink = Boolean(webLink);
+              const hasAnyLink = Boolean(webLink || codeLink);
+
+              return (
+                <article className="project-card" key={project.id}>
                   <a
-                    href={project.link || '#'}
+                    href={webLink || '#'}
                     target="_blank"
                     rel="noreferrer"
-                    className={`project-link ${!project.link ? 'disabled' : ''}`}
+                    className={`project-thumb ${!hasPosterLink ? 'disabled' : ''}`}
                     onClick={(event) => {
-                      if (!project.link) {
+                      if (!hasPosterLink) {
                         event.preventDefault();
                       }
                     }}
+                    aria-label={`Open ${project.title} web page`}
                   >
-                    View Project <i className="fas fa-arrow-right"></i>
+                    {project.image ? (
+                      <img src={project.image} alt={project.title} />
+                    ) : (
+                      <div className="project-thumb-fallback">
+                        <i className="fas fa-code"></i>
+                      </div>
+                    )}
+                    <span className="project-category">{project.category}</span>
                   </a>
-                </div>
-              </article>
-            ))}
+                  <div className="project-body">
+                    <h3>{project.title}</h3>
+                    <p>{project.description}</p>
+                    <div className="project-stack">
+                      {project.stack.length > 0 ? (
+                        project.stack.map((item) => (
+                          <span key={`${project.id}-${item}`} className="project-tag">
+                            {item}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="project-tag">General</span>
+                      )}
+                    </div>
+                    <details className={`project-options ${!hasAnyLink ? 'disabled' : ''}`}>
+                      <summary
+                        className={`project-link ${!hasAnyLink ? 'disabled' : ''}`}
+                        onClick={(event) => {
+                          if (!hasAnyLink) {
+                            event.preventDefault();
+                          }
+                        }}
+                      >
+                        View Project <i className="fas fa-arrow-right"></i>
+                      </summary>
+                      <div className="project-options-menu">
+                        <a
+                          href={webLink || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={!webLink ? 'disabled' : ''}
+                          onClick={(event) => {
+                            if (!webLink) {
+                              event.preventDefault();
+                            }
+                          }}
+                        >
+                          Web Page
+                        </a>
+                        <a
+                          href={codeLink || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={!codeLink ? 'disabled' : ''}
+                          onClick={(event) => {
+                            if (!codeLink) {
+                              event.preventDefault();
+                            }
+                          }}
+                        >
+                          Code
+                        </a>
+                      </div>
+                    </details>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -1271,16 +1344,30 @@ function Home() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="projectLink">
-                  Project Link
+                <label className="form-label" htmlFor="projectWebLink">
+                  Web Page Link
                 </label>
                 <input
-                  id="projectLink"
-                  name="link"
+                  id="projectWebLink"
+                  name="webLink"
                   type="url"
                   className="form-input"
-                  placeholder="https://..."
-                  value={projectForm.link}
+                  placeholder="https://live-project..."
+                  value={projectForm.webLink}
+                  onChange={handleProjectInput}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="projectCodeLink">
+                  Code Link (GitHub)
+                </label>
+                <input
+                  id="projectCodeLink"
+                  name="codeLink"
+                  type="url"
+                  className="form-input"
+                  placeholder="https://github.com/..."
+                  value={projectForm.codeLink}
                   onChange={handleProjectInput}
                 />
               </div>

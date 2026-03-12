@@ -5,6 +5,10 @@ const TODAY_VISITOR_KEY = 'portfolio_visitors_today_v1';
 const SESSION_KEY = 'portfolio_visit_recorded';
 const DEVICE_KEY = 'portfolio_device_type';
 const SOURCE_KEY = 'portfolio_traffic_source';
+const DEVICE_COUNTS_KEY = 'portfolio_device_counts_v1';
+const SOURCE_COUNTS_KEY = 'portfolio_source_counts_v1';
+const DEVICE_TYPES = ['Mobile', 'Desktop', 'Tablet'];
+const TRAFFIC_SOURCES = ['Google Search', 'Direct', 'LinkedIn', 'Instagram', 'Other'];
 
 export const detectDeviceType = () => {
   const ua = navigator.userAgent || '';
@@ -33,6 +37,32 @@ const getCachedAttribution = () => {
   localStorage.setItem(DEVICE_KEY, deviceType);
   localStorage.setItem(SOURCE_KEY, source);
   return { deviceType, source };
+};
+
+const readCountMap = (key, baseKeys) => {
+  const base = baseKeys.reduce((acc, item) => ({ ...acc, [item]: 0 }), {});
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+    if (parsed && typeof parsed === 'object') {
+      return { ...base, ...parsed };
+    }
+  } catch {
+    // Ignore malformed local values.
+  }
+  return base;
+};
+
+const writeCountMap = (key, value) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const bumpLocalAttribution = (deviceType, source) => {
+  const devices = readCountMap(DEVICE_COUNTS_KEY, DEVICE_TYPES);
+  const sources = readCountMap(SOURCE_COUNTS_KEY, TRAFFIC_SOURCES);
+  devices[deviceType] = Number(devices[deviceType] || 0) + 1;
+  sources[source] = Number(sources[source] || 0) + 1;
+  writeCountMap(DEVICE_COUNTS_KEY, devices);
+  writeCountMap(SOURCE_COUNTS_KEY, sources);
 };
 
 const readLocalCount = () => {
@@ -74,9 +104,10 @@ export const recordVisit = async () => {
   }
 
   sessionStorage.setItem(SESSION_KEY, '1');
+  const attribution = getCachedAttribution();
+  bumpLocalAttribution(attribution.deviceType, attribution.source);
 
   try {
-    const attribution = getCachedAttribution();
     const response = await fetch(`${CHAT_API_BASE}/api/visitors/increment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

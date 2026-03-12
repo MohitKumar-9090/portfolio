@@ -195,9 +195,28 @@ const getTodayKey = () => {
   return `${y}-${m}-${d}`;
 };
 
+const DEVICE_TYPES = ['Mobile', 'Desktop', 'Tablet'];
+const TRAFFIC_SOURCES = ['Google Search', 'Direct', 'LinkedIn', 'Instagram', 'Other'];
+const LIVE_VISITOR_TTL_MS = 120000;
+
+const baseCountMap = (keys) => keys.reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
+
+const sanitizeDeviceType = (value) => {
+  const input = String(value || '').trim();
+  return DEVICE_TYPES.includes(input) ? input : 'Desktop';
+};
+
+const sanitizeTrafficSource = (value) => {
+  const input = String(value || '').trim();
+  return TRAFFIC_SOURCES.includes(input) ? input : 'Other';
+};
+
 const inMemoryVisitorStats = {
   totalVisitors: 0,
   dailyCounts: {},
+  deviceCounts: baseCountMap(DEVICE_TYPES),
+  sourceCounts: baseCountMap(TRAFFIC_SOURCES),
+  resumeDownloads: 0,
   updatedAt: Date.now(),
 };
 const inMemoryAnalyticsStats = {
@@ -205,6 +224,41 @@ const inMemoryAnalyticsStats = {
   byPath: {},
   events: {},
   lastVisitedAt: null,
+};
+const inMemoryLiveSessions = new Map();
+const inMemoryVisitorLogs = [];
+const visitorStreamClients = new Set();
+
+const normalizeVisitorLog = (value = {}) => {
+  const lat = Number(value.latitude);
+  const lng = Number(value.longitude);
+  const timestampMs =
+    typeof value.visitTimeMs === 'number'
+      ? value.visitTimeMs
+      : value?.visitTime && typeof value.visitTime.toMillis === 'function'
+        ? value.visitTime.toMillis()
+        : Date.now();
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return {
+    id: String(value.id || '').trim() || `visitor_${timestampMs}_${Math.random().toString(36).slice(2, 8)}`,
+    city: String(value.city || '').trim() || 'Unknown City',
+    country: String(value.country || value.country_name || '').trim() || 'Unknown Country',
+    latitude: lat,
+    longitude: lng,
+    ip: String(value.ip || '').trim(),
+    deviceType: sanitizeDeviceType(value.deviceType),
+    browser: String(value.browser || '').trim() || 'Unknown Browser',
+    visitTimeMs: timestampMs,
+  };
+};
+
+const emitVisitorStream = (payload) => {
+  const data = `data: ${JSON.stringify(payload)}\n\n`;
+  visitorStreamClients.forEach((clientRes) => {
+    clientRes.write(data);
+  });
 };
 
 if (serviceAccountRaw) {
@@ -336,30 +390,60 @@ const getVisitorCount = async () => {
     return {
       totalVisitors: inMemoryVisitorStats.totalVisitors,
       todayVisitors: Number(inMemoryVisitorStats.dailyCounts[todayKey] || 0),
+      deviceCounts: inMemoryVisitorStats.deviceCounts,
+      sourceCounts: inMemoryVisitorStats.sourceCounts,
+      resumeDownloads: Number(inMemoryVisitorStats.resumeDownloads || 0),
     };
   }
 
   const doc = await visitorsDocRef().get();
-  if (!doc.exists) return { totalVisitors: 0, todayVisitors: 0 };
+  if (!doc.exists) {
+    return {
+      totalVisitors: 0,
+      todayVisitors: 0,
+      deviceCounts: baseCountMap(DEVICE_TYPES),
+      sourceCounts: baseCountMap(TRAFFIC_SOURCES),
+      resumeDownloads: 0,
+    };
+  }
   const data = doc.data() || {};
   const todayKey = getTodayKey();
   const dailyCounts = data.dailyCounts && typeof data.dailyCounts === 'object' ? data.dailyCounts : {};
+  const deviceCounts = data.deviceCounts && typeof data.deviceCounts === 'object'
+    ? { ...baseCountMap(DEVICE_TYPES), ...data.deviceCounts }
+    : baseCountMap(DEVICE_TYPES);
+  const sourceCounts = data.sourceCounts && typeof data.sourceCounts === 'object'
+    ? { ...baseCountMap(TRAFFIC_SOURCES), ...data.sourceCounts }
+    : baseCountMap(TRAFFIC_SOURCES);
   return {
     totalVisitors: Number(data.totalVisitors || 0),
     todayVisitors: Number(dailyCounts[todayKey] || 0),
+    deviceCounts,
+    sourceCounts,
+    resumeDownloads: Number(data.resumeDownloads || 0),
   };
 };
 
-const incrementVisitorCount = async () => {
+const incrementVisitorCount = async ({ deviceType = 'Desktop', source = 'Direct' } = {}) => {
+  const safeDeviceType = sanitizeDeviceType(deviceType);
+  const safeSource = sanitizeTrafficSource(source);
+
   if (!firestore) {
     const todayKey = getTodayKey();
     inMemoryVisitorStats.totalVisitors += 1;
     inMemoryVisitorStats.dailyCounts[todayKey] =
       Number(inMemoryVisitorStats.dailyCounts[todayKey] || 0) + 1;
+    inMemoryVisitorStats.deviceCounts[safeDeviceType] =
+      Number(inMemoryVisitorStats.deviceCounts[safeDeviceType] || 0) + 1;
+    inMemoryVisitorStats.sourceCounts[safeSource] =
+      Number(inMemoryVisitorStats.sourceCounts[safeSource] || 0) + 1;
     inMemoryVisitorStats.updatedAt = Date.now();
     return {
       totalVisitors: inMemoryVisitorStats.totalVisitors,
       todayVisitors: Number(inMemoryVisitorStats.dailyCounts[todayKey] || 0),
+      deviceCounts: inMemoryVisitorStats.deviceCounts,
+      sourceCounts: inMemoryVisitorStats.sourceCounts,
+      resumeDownloads: Number(inMemoryVisitorStats.resumeDownloads || 0),
     };
   }
 
@@ -374,18 +458,46 @@ const incrementVisitorCount = async () => {
         ? snapshot.data().dailyCounts
         : {};
     const dailyCounts = { ...prevDailyCounts, [todayKey]: Number(prevDailyCounts[todayKey] || 0) + 1 };
+    const prevDeviceCounts =
+      snapshot.exists && snapshot.data()?.deviceCounts && typeof snapshot.data().deviceCounts === 'object'
+        ? snapshot.data().deviceCounts
+        : baseCountMap(DEVICE_TYPES);
+    const prevSourceCounts =
+      snapshot.exists && snapshot.data()?.sourceCounts && typeof snapshot.data().sourceCounts === 'object'
+        ? snapshot.data().sourceCounts
+        : baseCountMap(TRAFFIC_SOURCES);
+    const deviceCounts = {
+      ...baseCountMap(DEVICE_TYPES),
+      ...prevDeviceCounts,
+      [safeDeviceType]: Number(prevDeviceCounts[safeDeviceType] || 0) + 1,
+    };
+    const sourceCounts = {
+      ...baseCountMap(TRAFFIC_SOURCES),
+      ...prevSourceCounts,
+      [safeSource]: Number(prevSourceCounts[safeSource] || 0) + 1,
+    };
+    const resumeDownloads = Number(snapshot.data()?.resumeDownloads || 0);
 
     transaction.set(
       docRef,
       {
         totalVisitors: updated,
         dailyCounts,
+        deviceCounts,
+        sourceCounts,
+        resumeDownloads,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
 
-    return { totalVisitors: updated, todayVisitors: Number(dailyCounts[todayKey] || 0) };
+    return {
+      totalVisitors: updated,
+      todayVisitors: Number(dailyCounts[todayKey] || 0),
+      deviceCounts,
+      sourceCounts,
+      resumeDownloads,
+    };
   });
 
   return nextStats;
@@ -400,12 +512,313 @@ app.get('/api/visitors', async (_req, res) => {
   }
 });
 
-app.post('/api/visitors/increment', async (_req, res) => {
+app.post('/api/visitors/increment', async (req, res) => {
   try {
-    const stats = await incrementVisitorCount();
+    const stats = await incrementVisitorCount({
+      deviceType: req.body?.deviceType,
+      source: req.body?.source,
+    });
     res.status(200).json(stats);
   } catch (error) {
     res.status(500).json({ error: error?.message || 'Failed to increment visitors.' });
+  }
+});
+
+const saveVisitorLog = async (payload = {}) => {
+  const normalized = normalizeVisitorLog(payload);
+  if (!normalized) {
+    throw new Error('Invalid visitor payload.');
+  }
+
+  if (!firestore) {
+    inMemoryVisitorLogs.unshift(normalized);
+    if (inMemoryVisitorLogs.length > 100) {
+      inMemoryVisitorLogs.length = 100;
+    }
+    return normalized;
+  }
+
+  const docRef = firestore.collection('visitorLogs').doc();
+  const docPayload = {
+    city: normalized.city,
+    country: normalized.country,
+    latitude: normalized.latitude,
+    longitude: normalized.longitude,
+    ip: normalized.ip,
+    deviceType: normalized.deviceType,
+    browser: normalized.browser,
+    visitTime: admin.firestore.FieldValue.serverTimestamp(),
+    visitTimeMs: normalized.visitTimeMs,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await docRef.set(docPayload);
+
+  return { ...normalized, id: docRef.id };
+};
+
+const getRecentVisitorLogs = async (limit = 50) => {
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  if (!firestore) {
+    return inMemoryVisitorLogs.slice(0, safeLimit);
+  }
+
+  const snapshot = await firestore
+    .collection('visitorLogs')
+    .orderBy('visitTimeMs', 'desc')
+    .limit(safeLimit)
+    .get()
+    .catch(async () => {
+      return await firestore
+        .collection('visitorLogs')
+        .orderBy('createdAt', 'desc')
+        .limit(safeLimit)
+        .get();
+    });
+
+  const rows = [];
+  snapshot.forEach((doc) => {
+    const data = doc.data() || {};
+    rows.push(
+      normalizeVisitorLog({
+        id: doc.id,
+        city: data.city,
+        country: data.country,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        ip: data.ip,
+        deviceType: data.deviceType,
+        browser: data.browser,
+        visitTimeMs:
+          typeof data.visitTimeMs === 'number'
+            ? data.visitTimeMs
+            : data?.visitTime && typeof data.visitTime.toMillis === 'function'
+              ? data.visitTime.toMillis()
+              : Date.now(),
+      })
+    );
+  });
+
+  return rows.filter(Boolean).sort((a, b) => b.visitTimeMs - a.visitTimeMs);
+};
+
+app.post('/api/visitors/log', async (req, res) => {
+  try {
+    const saved = await saveVisitorLog({
+      city: req.body?.city,
+      country_name: req.body?.country_name,
+      country: req.body?.country,
+      latitude: req.body?.latitude,
+      longitude: req.body?.longitude,
+      ip: req.body?.ip,
+      deviceType: req.body?.deviceType,
+      browser: req.body?.browser,
+      visitTimeMs: req.body?.visitTimeMs,
+    });
+
+    emitVisitorStream({ type: 'visitor_logged', visitor: saved });
+    res.status(200).json({ ok: true, visitor: saved });
+  } catch (error) {
+    res.status(400).json({ error: error?.message || 'Failed to store visitor log.' });
+  }
+});
+
+app.get('/api/visitors/recent', async (req, res) => {
+  try {
+    const visitors = await getRecentVisitorLogs(req.query?.limit || 50);
+    res.status(200).json({ visitors });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to fetch recent visitors.' });
+  }
+});
+
+app.get('/api/visitors/stream', async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  visitorStreamClients.add(res);
+  res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
+
+  const heartbeat = setInterval(() => {
+    res.write('event: ping\ndata: {}\n\n');
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    visitorStreamClients.delete(res);
+  });
+});
+
+const incrementResumeDownloads = async () => {
+  if (!firestore) {
+    inMemoryVisitorStats.resumeDownloads = Number(inMemoryVisitorStats.resumeDownloads || 0) + 1;
+    return Number(inMemoryVisitorStats.resumeDownloads || 0);
+  }
+
+  const total = await firestore.runTransaction(async (transaction) => {
+    const docRef = visitorsDocRef();
+    const snapshot = await transaction.get(docRef);
+    const current = snapshot.exists ? Number(snapshot.data()?.resumeDownloads || 0) : 0;
+    const next = current + 1;
+
+    transaction.set(
+      docRef,
+      {
+        resumeDownloads: next,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return next;
+  });
+
+  return total;
+};
+
+const getLiveVisitorCount = async () => {
+  const cutoffMs = Date.now() - LIVE_VISITOR_TTL_MS;
+
+  if (!firestore) {
+    for (const [sessionId, ts] of inMemoryLiveSessions.entries()) {
+      if (ts < cutoffMs) inMemoryLiveSessions.delete(sessionId);
+    }
+    return inMemoryLiveSessions.size;
+  }
+
+  const liveSessionsRef = firestore.collection('liveSessions');
+  const staleSnapshot = await liveSessionsRef
+    .where('lastSeenAt', '<', new Date(cutoffMs))
+    .limit(50)
+    .get()
+    .catch(() => null);
+  if (staleSnapshot) {
+    const batch = firestore.batch();
+    staleSnapshot.forEach((doc) => batch.delete(doc.ref));
+    if (!staleSnapshot.empty) {
+      await batch.commit();
+    }
+  }
+
+  const activeSnapshot = await liveSessionsRef.where('lastSeenAt', '>=', new Date(cutoffMs)).get();
+  return activeSnapshot.size;
+};
+
+const heartbeatLiveVisitor = async (sessionId) => {
+  const safeSession = String(sessionId || '').trim().slice(0, 120);
+  if (!safeSession) return null;
+
+  if (!firestore) {
+    inMemoryLiveSessions.set(safeSession, Date.now());
+    return safeSession;
+  }
+
+  await firestore.collection('liveSessions').doc(safeSession).set(
+    {
+      lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return safeSession;
+};
+
+const disconnectLiveVisitor = async (sessionId) => {
+  const safeSession = String(sessionId || '').trim().slice(0, 120);
+  if (!safeSession) return;
+
+  if (!firestore) {
+    inMemoryLiveSessions.delete(safeSession);
+    return;
+  }
+
+  await firestore.collection('liveSessions').doc(safeSession).delete().catch(() => {});
+};
+
+const toDistribution = (counts = {}, keys = []) => {
+  const total = keys.reduce((acc, key) => acc + Number(counts[key] || 0), 0);
+  return keys.map((key) => ({
+    label: key,
+    count: Number(counts[key] || 0),
+    percentage: total > 0 ? Math.round((Number(counts[key] || 0) / total) * 100) : 0,
+  }));
+};
+
+app.post('/api/resume-downloads/increment', async (_req, res) => {
+  try {
+    const totalResumeDownloads = await incrementResumeDownloads();
+    res.status(200).json({ totalResumeDownloads });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to increment resume downloads.' });
+  }
+});
+
+app.get('/api/resume-downloads', async (_req, res) => {
+  try {
+    const stats = await getVisitorCount();
+    res.status(200).json({ totalResumeDownloads: Number(stats.resumeDownloads || 0) });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to fetch resume downloads.' });
+  }
+});
+
+app.post('/api/live-visitors/heartbeat', async (req, res) => {
+  const sessionId = req.body?.sessionId;
+  if (!sessionId) {
+    res.status(400).json({ error: 'sessionId is required.' });
+    return;
+  }
+
+  try {
+    await heartbeatLiveVisitor(sessionId);
+    const liveVisitors = await getLiveVisitorCount();
+    res.status(200).json({ liveVisitors });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to track live visitor heartbeat.' });
+  }
+});
+
+app.post('/api/live-visitors/disconnect', async (req, res) => {
+  try {
+    await disconnectLiveVisitor(req.body?.sessionId);
+    const liveVisitors = await getLiveVisitorCount();
+    res.status(200).json({ liveVisitors });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to disconnect live visitor.' });
+  }
+});
+
+app.get('/api/live-visitors', async (_req, res) => {
+  try {
+    const liveVisitors = await getLiveVisitorCount();
+    res.status(200).json({ liveVisitors });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to fetch live visitors.' });
+  }
+});
+
+app.get('/api/admin/insights', async (_req, res) => {
+  try {
+    const visitorStats = await getVisitorCount();
+    const liveVisitors = await getLiveVisitorCount();
+    const deviceDistribution = toDistribution(visitorStats.deviceCounts || {}, DEVICE_TYPES);
+    const trafficDistribution = toDistribution(visitorStats.sourceCounts || {}, TRAFFIC_SOURCES);
+
+    res.status(200).json({
+      totalVisitors: Number(visitorStats.totalVisitors || 0),
+      todayVisitors: Number(visitorStats.todayVisitors || 0),
+      liveVisitors: Number(liveVisitors || 0),
+      resumeDownloads: Number(visitorStats.resumeDownloads || 0),
+      deviceCounts: visitorStats.deviceCounts || baseCountMap(DEVICE_TYPES),
+      sourceCounts: visitorStats.sourceCounts || baseCountMap(TRAFFIC_SOURCES),
+      deviceDistribution,
+      trafficDistribution,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to fetch admin insights.' });
   }
 });
 

@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import '../styles/portfolio.css';
 import PROFILE_FIXED from '../assets/profile-fixed.jpg';
 import COVER_FIXED from '../assets/cover-fixed.png';
+import { incrementResumeDownload } from '../services/insights';
 
 const DEFAULT_PROFILE = PROFILE_FIXED;
 const DEFAULT_COVER = COVER_FIXED;
@@ -229,6 +230,7 @@ function Home() {
   });
 
   const handleDownloadResume = async () => {
+    incrementResumeDownload();
     const data = buildPortfolioData();
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();

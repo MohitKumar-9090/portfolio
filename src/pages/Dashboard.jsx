@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import SeoHead from '../components/SeoHead';
 import VisitorCounter from '../components/VisitorCounter';
 import GithubActivity from '../components/GithubActivity';
+import AdminInsightsPanel from '../components/analytics/AdminInsightsPanel';
+import VisitorTracker from '../components/analytics/VisitorTracker';
 import { SITE_CONFIG } from '../config/site';
 import { getAnalyticsOverview } from '../services/analytics';
+import { getAdminInsights } from '../services/insights';
 import '../styles/dashboard.css';
 
 const AnalyticsOverviewCard = () => {
@@ -59,6 +62,35 @@ const AnalyticsOverviewCard = () => {
 export default function Dashboard() {
   const [visitorStats, setVisitorStats] = useState({ totalVisitors: 0, todayVisitors: 0 });
   const [githubSummary, setGithubSummary] = useState(null);
+  const [adminInsights, setAdminInsights] = useState({
+    totalVisitors: 0,
+    todayVisitors: 0,
+    liveVisitors: 0,
+    resumeDownloads: 0,
+    deviceDistribution: [],
+    trafficDistribution: [],
+  });
+  const [insightsLoading, setInsightsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    let timer = null;
+
+    const loadInsights = async () => {
+      const data = await getAdminInsights();
+      if (!active) return;
+      setAdminInsights(data);
+      setInsightsLoading(false);
+    };
+
+    loadInsights();
+    timer = window.setInterval(loadInsights, 30000);
+
+    return () => {
+      active = false;
+      if (timer) window.clearInterval(timer);
+    };
+  }, []);
 
   return (
     <>
@@ -89,6 +121,10 @@ export default function Dashboard() {
           <section className="dashboard-grid">
             <VisitorCounter onLoaded={setVisitorStats} />
             <AnalyticsOverviewCard />
+          </section>
+
+          <section className="dashboard-grid">
+            <VisitorTracker />
           </section>
 
           <section className="dashboard-grid">
@@ -140,8 +176,38 @@ export default function Dashboard() {
                     <strong>{githubSummary ? githubSummary.repositories : 'Loading...'}</strong>
                   </div>
                 </article>
+                <article className="executive-metric-card">
+                  <span className="executive-metric-icon">
+                    <i className="fas fa-bolt"></i>
+                  </span>
+                  <div>
+                    <small>Live Visitors Right Now</small>
+                    <strong>
+                      {insightsLoading
+                        ? 'Loading...'
+                        : Number(adminInsights.liveVisitors || 0).toLocaleString()}
+                    </strong>
+                  </div>
+                </article>
+                <article className="executive-metric-card">
+                  <span className="executive-metric-icon">
+                    <i className="fas fa-file-arrow-down"></i>
+                  </span>
+                  <div>
+                    <small>Resume Downloads</small>
+                    <strong>
+                      {insightsLoading
+                        ? 'Loading...'
+                        : Number(adminInsights.resumeDownloads || 0).toLocaleString()}
+                    </strong>
+                  </div>
+                </article>
               </div>
             </div>
+          </section>
+
+          <section className="dashboard-grid">
+            <AdminInsightsPanel insights={adminInsights} loading={insightsLoading} />
           </section>
         </div>
       </main>

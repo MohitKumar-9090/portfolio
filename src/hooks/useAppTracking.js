@@ -7,6 +7,8 @@ import {
   trackPageView,
 } from '../services/analytics';
 import { recordVisit } from '../services/visitorCounter';
+import { startLiveVisitorHeartbeat } from '../services/insights';
+import { logCurrentVisitor } from '../services/visitorRealtime';
 
 const ANALYTICS_SESSION_KEY = 'portfolio_analytics_session_started';
 
@@ -16,6 +18,8 @@ export const useAppTracking = () => {
   useEffect(() => {
     initAnalytics();
     recordVisit();
+    logCurrentVisitor();
+    const stopHeartbeat = startLiveVisitorHeartbeat();
     if (sessionStorage.getItem(ANALYTICS_SESSION_KEY) !== '1') {
       sessionStorage.setItem(ANALYTICS_SESSION_KEY, '1');
       trackBehaviorEvent('session_start');
@@ -23,6 +27,7 @@ export const useAppTracking = () => {
     const stopTracking = startBehaviorTracking();
     return () => {
       if (typeof stopTracking === 'function') stopTracking();
+      if (typeof stopHeartbeat === 'function') stopHeartbeat();
     };
   }, []);
 

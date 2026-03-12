@@ -86,14 +86,23 @@ export default function GithubActivity({ username, onSummary }) {
       <div className="github-sections">
         <section>
           <h4>Latest Commits</h4>
-          <ul>
-            {commits.length === 0 && <li>No recent public commits.</li>}
-            {commits.map((commit) => (
-              <li key={commit.id}>
-                <strong>{commit.repo}</strong>: {commit.message}
-              </li>
-            ))}
-          </ul>
+          <div className="commit-cards">
+            {commits.length === 0 && <p>No recent public commits.</p>}
+            {commits.map((commit) => {
+              const commitDate = commit.timestamp
+                ? new Date(commit.timestamp).toLocaleDateString()
+                : 'N/A';
+              return (
+                <article key={commit.id} className="commit-card">
+                  <div className="commit-card-head">
+                    <strong>{commit.repo}</strong>
+                    <span>{commitDate}</span>
+                  </div>
+                  <p>{commit.message}</p>
+                </article>
+              );
+            })}
+          </div>
         </section>
 
         <section>

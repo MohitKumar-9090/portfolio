@@ -96,24 +96,51 @@ export default function Dashboard() {
           </section>
 
           <section className="dashboard-grid">
-            <div className="dashboard-card dashboard-wide">
+            <div className="dashboard-card dashboard-wide executive-summary-card">
               <h3>
                 <i className="fas fa-gauge-high"></i> Executive Summary
               </h3>
-              <p>
-                Total visitors: <strong>{visitorStats.totalVisitors.toLocaleString()}</strong>
+              <p className="executive-subtitle">
+                Snapshot of current portfolio growth and engineering activity.
               </p>
-              <p>
-                Today&apos;s visitors: <strong>{visitorStats.todayVisitors.toLocaleString()}</strong>
-              </p>
-              <p>
-                GitHub push events:{' '}
-                <strong>{githubSummary ? githubSummary.pushEvents : 'Loading...'}</strong>
-              </p>
-              <p>
-                Public repositories tracked:{' '}
-                <strong>{githubSummary ? githubSummary.repositories : 'Loading...'}</strong>
-              </p>
+              <div className="executive-metric-grid">
+                <article className="executive-metric-card">
+                  <span className="executive-metric-icon">
+                    <i className="fas fa-users"></i>
+                  </span>
+                  <div>
+                    <small>Total Visitors</small>
+                    <strong>{visitorStats.totalVisitors.toLocaleString()}</strong>
+                  </div>
+                </article>
+                <article className="executive-metric-card">
+                  <span className="executive-metric-icon">
+                    <i className="fas fa-calendar-day"></i>
+                  </span>
+                  <div>
+                    <small>Today&apos;s Visitors</small>
+                    <strong>{visitorStats.todayVisitors.toLocaleString()}</strong>
+                  </div>
+                </article>
+                <article className="executive-metric-card">
+                  <span className="executive-metric-icon">
+                    <i className="fab fa-github"></i>
+                  </span>
+                  <div>
+                    <small>GitHub Push Events</small>
+                    <strong>{githubSummary ? githubSummary.pushEvents : 'Loading...'}</strong>
+                  </div>
+                </article>
+                <article className="executive-metric-card">
+                  <span className="executive-metric-icon">
+                    <i className="fas fa-folder-tree"></i>
+                  </span>
+                  <div>
+                    <small>Public Repositories</small>
+                    <strong>{githubSummary ? githubSummary.repositories : 'Loading...'}</strong>
+                  </div>
+                </article>
+              </div>
             </div>
           </section>
         </div>

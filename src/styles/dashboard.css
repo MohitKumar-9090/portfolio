@@ -374,6 +374,13 @@
   background: #e0edff;
 }
 
+.github-activity-card {
+  border: 1px solid rgba(30, 64, 175, 0.25);
+  background:
+    radial-gradient(circle at 95% 8%, rgba(59, 130, 246, 0.14), transparent 28%),
+    linear-gradient(145deg, #ffffff, #eef4ff);
+}
+
 .github-summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -385,48 +392,83 @@
   display: flex;
   gap: 0.9rem;
   align-items: center;
-  padding: 0.9rem;
-  border: 1px solid #dbeafe;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #eff6ff, #f8fafc);
+  padding: 1rem;
+  border: 1px solid #c7dbff;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #edf4ff, #f8fbff);
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.12);
+}
+
+.github-avatar-wrap {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  padding: 3px;
+  flex-shrink: 0;
 }
 
 .github-profile-card img {
-  width: 64px;
-  height: 64px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   object-fit: cover;
+  background: #dbeafe;
 }
 
 .github-profile-card p {
-  margin: 0.2rem 0;
-  color: #4b5563;
+  margin: 0.15rem 0;
+  color: #475569;
+}
+
+.github-profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0.55rem;
+}
+
+.github-profile-badges span {
+  display: inline-flex;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .github-profile-card a {
-  color: #1d4ed8;
-  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  font-weight: 700;
   text-decoration: none;
+  box-shadow: 0 8px 14px rgba(37, 99, 235, 0.24);
 }
 
 .github-profile-card a:hover {
-  text-decoration: underline;
+  opacity: 0.95;
 }
 
 .github-summary-grid div {
-  background: linear-gradient(140deg, #f8fafc, #eef2ff);
-  border: 1px solid #e2e8f0;
+  background: linear-gradient(140deg, #ffffff, #eef5ff);
+  border: 1px solid #dbeafe;
   border-radius: 10px;
-  padding: 0.65rem;
+  padding: 0.75rem;
+  box-shadow: 0 8px 16px rgba(30, 64, 175, 0.08);
 }
 
 .github-summary-grid strong {
   display: block;
-  font-size: 1.15rem;
+  font-size: 1.25rem;
+  color: #0f172a;
 }
 
 .github-summary-grid span {
-  color: #475569;
+  color: #334155;
   font-size: 0.85rem;
 }
 

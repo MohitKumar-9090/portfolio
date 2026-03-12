@@ -30,8 +30,10 @@ export default function GithubActivity({ username, onSummary }) {
 
   if (state.loading) {
     return (
-      <div className="dashboard-card dashboard-wide">
-        <h3>GitHub Activity</h3>
+      <div className="dashboard-card dashboard-wide github-activity-card">
+        <h3>
+          <i className="fab fa-github"></i> GitHub Activity
+        </h3>
         <p>Loading GitHub data...</p>
       </div>
     );
@@ -39,8 +41,10 @@ export default function GithubActivity({ username, onSummary }) {
 
   if (state.error || !state.data) {
     return (
-      <div className="dashboard-card dashboard-wide">
-        <h3>GitHub Activity</h3>
+      <div className="dashboard-card dashboard-wide github-activity-card">
+        <h3>
+          <i className="fab fa-github"></i> GitHub Activity
+        </h3>
         <p>{state.error || 'No data available.'}</p>
       </div>
     );
@@ -49,15 +53,23 @@ export default function GithubActivity({ username, onSummary }) {
   const { profile, commits, repositories, contribution } = state.data;
 
   return (
-    <div className="dashboard-card dashboard-wide">
-      <h3>GitHub Activity</h3>
+    <div className="dashboard-card dashboard-wide github-activity-card">
+      <h3>
+        <i className="fab fa-github"></i> GitHub Activity
+      </h3>
 
       <div className="github-profile-card">
-        {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profile.login} /> : null}
+        <div className="github-avatar-wrap">
+          {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profile.login} /> : null}
+        </div>
         <div>
           <strong>{profile.name || profile.login}</strong>
           <p>@{profile.login}</p>
           <p>{profile.bio || 'Developer profile'}</p>
+          <div className="github-profile-badges">
+            <span>Open Source</span>
+            <span>Active Developer</span>
+          </div>
           <a href={profile.profileUrl} target="_blank" rel="noreferrer">
             View Profile
           </a>

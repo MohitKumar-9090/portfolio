@@ -1644,7 +1644,59 @@ section {
     padding: 9px 10px;
   }
 
-  .chatbot-send {
+.chatbot-send {
     padding: 0 12px;
+  }
+}
+
+.dashboard-highlight-cta {
+  background: linear-gradient(120deg, #eef2ff, #e0ecff);
+  border-top: 1px solid rgba(99, 102, 241, 0.18);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.18);
+}
+
+.dashboard-highlight-cta-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.2rem 0;
+}
+
+.dashboard-highlight-cta h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #1e293b;
+}
+
+.dashboard-highlight-cta p {
+  margin: 0.35rem 0 0;
+  color: #475569;
+}
+
+.dashboard-highlight-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.62rem 1rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4f46e5, #2563eb);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.28);
+  white-space: nowrap;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-highlight-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(37, 99, 235, 0.33);
+}
+
+@media (max-width: 768px) {
+  .dashboard-highlight-cta-content {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

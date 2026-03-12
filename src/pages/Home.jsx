@@ -672,6 +672,11 @@ function Home() {
                 Contact
               </a>
             </li>
+            <li>
+              <a href="/dashboard" onClick={() => setNavOpen(false)}>
+                Dashboard
+              </a>
+            </li>
           </ul>
 
         </div>
@@ -1477,6 +1482,18 @@ function Home() {
         </button>
       </div>
 
+      <section className="dashboard-highlight-cta" aria-label="Dashboard quick access">
+        <div className="container dashboard-highlight-cta-content">
+          <div>
+            <h3>Need Portfolio Insights?</h3>
+            <p>Open the analytics dashboard for visitors, GitHub activity, and performance summary.</p>
+          </div>
+          <a href="/dashboard" className="dashboard-highlight-btn">
+            <i className="fas fa-chart-line"></i> Open Dashboard
+          </a>
+        </div>
+      </section>
+
       <footer className="footer">
         <div className="container">
           <div className="footer-content">
@@ -1524,6 +1541,7 @@ function Home() {
                 <a href="#reviews">Reviews</a>
                 <a href="#projects">Projects</a>
                 <a href="#contact">Contact</a>
+                <a href="/dashboard">Dashboard</a>
               </div>
             </div>
 

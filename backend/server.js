@@ -187,6 +187,25 @@ Be grounded.
 Be honest.
 `.trim();
 let firestore = null;
+const getTodayKey = () => {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(now.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const inMemoryVisitorStats = {
+  totalVisitors: 0,
+  dailyCounts: {},
+  updatedAt: Date.now(),
+};
+const inMemoryAnalyticsStats = {
+  pageViews: 0,
+  byPath: {},
+  events: {},
+  lastVisitedAt: null,
+};
 
 if (serviceAccountRaw) {
   try {
@@ -306,6 +325,237 @@ app.patch('/api/reviews/:id/hide', async (req, res) => {
     res.status(200).json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: error?.message || 'Failed to hide review.' });
+  }
+});
+
+const visitorsDocRef = () => (firestore ? firestore.collection('siteStats').doc('visitors') : null);
+
+const getVisitorCount = async () => {
+  if (!firestore) {
+    const todayKey = getTodayKey();
+    return {
+      totalVisitors: inMemoryVisitorStats.totalVisitors,
+      todayVisitors: Number(inMemoryVisitorStats.dailyCounts[todayKey] || 0),
+    };
+  }
+
+  const doc = await visitorsDocRef().get();
+  if (!doc.exists) return { totalVisitors: 0, todayVisitors: 0 };
+  const data = doc.data() || {};
+  const todayKey = getTodayKey();
+  const dailyCounts = data.dailyCounts && typeof data.dailyCounts === 'object' ? data.dailyCounts : {};
+  return {
+    totalVisitors: Number(data.totalVisitors || 0),
+    todayVisitors: Number(dailyCounts[todayKey] || 0),
+  };
+};
+
+const incrementVisitorCount = async () => {
+  if (!firestore) {
+    const todayKey = getTodayKey();
+    inMemoryVisitorStats.totalVisitors += 1;
+    inMemoryVisitorStats.dailyCounts[todayKey] =
+      Number(inMemoryVisitorStats.dailyCounts[todayKey] || 0) + 1;
+    inMemoryVisitorStats.updatedAt = Date.now();
+    return {
+      totalVisitors: inMemoryVisitorStats.totalVisitors,
+      todayVisitors: Number(inMemoryVisitorStats.dailyCounts[todayKey] || 0),
+    };
+  }
+
+  const nextStats = await firestore.runTransaction(async (transaction) => {
+    const docRef = visitorsDocRef();
+    const snapshot = await transaction.get(docRef);
+    const current = snapshot.exists ? Number(snapshot.data()?.totalVisitors || 0) : 0;
+    const updated = current + 1;
+    const todayKey = getTodayKey();
+    const prevDailyCounts =
+      snapshot.exists && snapshot.data()?.dailyCounts && typeof snapshot.data().dailyCounts === 'object'
+        ? snapshot.data().dailyCounts
+        : {};
+    const dailyCounts = { ...prevDailyCounts, [todayKey]: Number(prevDailyCounts[todayKey] || 0) + 1 };
+
+    transaction.set(
+      docRef,
+      {
+        totalVisitors: updated,
+        dailyCounts,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return { totalVisitors: updated, todayVisitors: Number(dailyCounts[todayKey] || 0) };
+  });
+
+  return nextStats;
+};
+
+app.get('/api/visitors', async (_req, res) => {
+  try {
+    const stats = await getVisitorCount();
+    res.status(200).json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to fetch visitors.' });
+  }
+});
+
+app.post('/api/visitors/increment', async (_req, res) => {
+  try {
+    const stats = await incrementVisitorCount();
+    res.status(200).json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to increment visitors.' });
+  }
+});
+
+const analyticsDocRef = () => (firestore ? firestore.collection('siteStats').doc('analytics') : null);
+
+const sanitizePath = (value) => {
+  const path = String(value || '/').trim();
+  if (!path) return '/';
+  return path.startsWith('/') ? path : `/${path}`;
+};
+
+const sanitizeEventName = (value) => {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 60);
+};
+
+const incrementAnalyticsPageView = async ({ path = '/', title = '' }) => {
+  const safePath = sanitizePath(path);
+  const safeTitle = String(title || '').trim().slice(0, 150);
+
+  if (!firestore) {
+    inMemoryAnalyticsStats.pageViews += 1;
+    inMemoryAnalyticsStats.byPath[safePath] =
+      Number(inMemoryAnalyticsStats.byPath[safePath] || 0) + 1;
+    inMemoryAnalyticsStats.lastVisitedAt = new Date().toISOString();
+    return inMemoryAnalyticsStats;
+  }
+
+  const updated = await firestore.runTransaction(async (transaction) => {
+    const docRef = analyticsDocRef();
+    const snapshot = await transaction.get(docRef);
+    const prev = snapshot.exists ? snapshot.data() || {} : {};
+    const byPath = prev.byPath && typeof prev.byPath === 'object' ? { ...prev.byPath } : {};
+    const nextViews = Number(prev.pageViews || 0) + 1;
+
+    byPath[safePath] = Number(byPath[safePath] || 0) + 1;
+
+    const payload = {
+      pageViews: nextViews,
+      byPath,
+      events: prev.events && typeof prev.events === 'object' ? prev.events : {},
+      lastVisitedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastPage: { path: safePath, title: safeTitle },
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    transaction.set(docRef, payload, { merge: true });
+    return { pageViews: nextViews, byPath };
+  });
+
+  return updated;
+};
+
+const incrementAnalyticsEvent = async ({ eventName = '', path = '/' }) => {
+  const safeEventName = sanitizeEventName(eventName);
+  if (!safeEventName) return null;
+  const safePath = sanitizePath(path);
+
+  if (!firestore) {
+    inMemoryAnalyticsStats.events[safeEventName] =
+      Number(inMemoryAnalyticsStats.events[safeEventName] || 0) + 1;
+    return inMemoryAnalyticsStats;
+  }
+
+  const updated = await firestore.runTransaction(async (transaction) => {
+    const docRef = analyticsDocRef();
+    const snapshot = await transaction.get(docRef);
+    const prev = snapshot.exists ? snapshot.data() || {} : {};
+    const events = prev.events && typeof prev.events === 'object' ? { ...prev.events } : {};
+
+    events[safeEventName] = Number(events[safeEventName] || 0) + 1;
+
+    const payload = {
+      pageViews: Number(prev.pageViews || 0),
+      byPath: prev.byPath && typeof prev.byPath === 'object' ? prev.byPath : {},
+      events,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    transaction.set(docRef, payload, { merge: true });
+    return { events };
+  });
+
+  await firestore.collection('analyticsEvents').add({
+    eventName: safeEventName,
+    path: safePath,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return updated;
+};
+
+const getAnalyticsSnapshot = async () => {
+  if (!firestore) return inMemoryAnalyticsStats;
+  const doc = await analyticsDocRef().get();
+  if (!doc.exists) {
+    return { pageViews: 0, byPath: {}, events: {}, lastVisitedAt: null };
+  }
+
+  const data = doc.data() || {};
+  const toIsoOrNull = (value) =>
+    value && typeof value.toDate === 'function' ? value.toDate().toISOString() : null;
+
+  return {
+    pageViews: Number(data.pageViews || 0),
+    byPath: data.byPath && typeof data.byPath === 'object' ? data.byPath : {},
+    events: data.events && typeof data.events === 'object' ? data.events : {},
+    lastVisitedAt: toIsoOrNull(data.lastVisitedAt),
+  };
+};
+
+app.post('/api/analytics/pageview', async (req, res) => {
+  try {
+    await incrementAnalyticsPageView({
+      path: req.body?.path,
+      title: req.body?.title,
+    });
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to track page view.' });
+  }
+});
+
+app.post('/api/analytics/event', async (req, res) => {
+  const eventName = req.body?.eventName;
+  if (!eventName) {
+    res.status(400).json({ error: 'eventName is required.' });
+    return;
+  }
+
+  try {
+    await incrementAnalyticsEvent({
+      eventName,
+      path: req.body?.path,
+    });
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to track event.' });
+  }
+});
+
+app.get('/api/analytics/overview', async (_req, res) => {
+  try {
+    const overview = await getAnalyticsSnapshot();
+    res.status(200).json(overview);
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Failed to fetch analytics overview.' });
   }
 });
 
@@ -464,7 +714,7 @@ const getPortfolioDataFromFirebase = async () => {
   return normalizePortfolioData(doc.data());
 };
 
-const buildFinalPrompt = ({ systemPrompt, portfolioData, userMessage, maxChars }) => {
+const buildFinalPrompt = ({ portfolioData, userMessage, maxChars }) => {
   let promptPortfolioData = normalizePortfolioForPrompt(portfolioData, 'normal');
   let portfolioJson = JSON.stringify(promptPortfolioData);
 
@@ -512,7 +762,6 @@ app.post('/api/chat', async (req, res) => {
     const firebasePortfolioData = await getPortfolioDataFromFirebase().catch(() => null);
     const latestPortfolioData = firebasePortfolioData || requestPortfolioData || {};
     const finalPrompt = buildFinalPrompt({
-      systemPrompt: SYSTEM_PROMPT,
       portfolioData: latestPortfolioData,
       userMessage,
       maxChars: maxPortfolioContextChars,

@@ -6,6 +6,7 @@ import '../styles/portfolio.css';
 import PROFILE_FIXED from '../assets/profile-fixed.jpg';
 import COVER_FIXED from '../assets/cover-fixed.png';
 import { incrementResumeDownload } from '../services/insights';
+import { db, firebase } from '../lib/firebase';
 
 const DEFAULT_PROFILE = PROFILE_FIXED;
 const DEFAULT_COVER = COVER_FIXED;
@@ -14,6 +15,7 @@ const IBM_LOGO =
 const CHAT_API_BASE = (
   import.meta.env.VITE_CHAT_API_URL || 'https://portfolio-n4ko.onrender.com'
 ).replace(/\/$/, '');
+const PROJECTS_DOC = db.collection('portfolio').doc('projects');
 const DEFAULT_PROJECTS = [
   {
     id: 'p1',
@@ -82,6 +84,7 @@ function Home() {
   const [projects, setProjects] = useState(() =>
     DEFAULT_PROJECTS.map((project) => normalizeProject(project))
   );
+  const [projectsHydrated, setProjectsHydrated] = useState(false);
   const [projectMessage, setProjectMessage] = useState(null);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectForm, setProjectForm] = useState({
@@ -110,22 +113,73 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    const savedProjects = localStorage.getItem('portfolio_projects');
-    if (!savedProjects) return;
+    let active = true;
 
-    try {
-      const parsed = JSON.parse(savedProjects);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setProjects(parsed.map((project) => normalizeProject(project)));
+    const loadProjects = async () => {
+      let loadedFromDatabase = false;
+
+      try {
+        const snapshot = await PROJECTS_DOC.get();
+        const dbProjects = snapshot.data()?.items;
+        if (Array.isArray(dbProjects)) {
+          loadedFromDatabase = true;
+          if (active) {
+            setProjects(dbProjects.map((project) => normalizeProject(project)));
+          }
+        }
+      } catch {
+        loadedFromDatabase = false;
       }
-    } catch {
-      setProjects(DEFAULT_PROJECTS.map((project) => normalizeProject(project)));
-    }
+
+      if (!loadedFromDatabase) {
+        const savedProjects = localStorage.getItem('portfolio_projects');
+        if (savedProjects) {
+          try {
+            const parsed = JSON.parse(savedProjects);
+            if (Array.isArray(parsed) && parsed.length > 0 && active) {
+              setProjects(parsed.map((project) => normalizeProject(project)));
+            }
+          } catch {
+            if (active) {
+              setProjects(DEFAULT_PROJECTS.map((project) => normalizeProject(project)));
+            }
+          }
+        }
+      }
+
+      if (active) {
+        setProjectsHydrated(true);
+      }
+    };
+
+    loadProjects();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
+    if (!projectsHydrated) return;
+
     localStorage.setItem('portfolio_projects', JSON.stringify(projects));
-  }, [projects]);
+
+    const syncProjectsToDatabase = async () => {
+      try {
+        await PROJECTS_DOC.set(
+          {
+            items: projects,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch {
+        // localStorage fallback already keeps projects persistent for this browser
+      }
+    };
+
+    syncProjectsToDatabase();
+  }, [projects, projectsHydrated]);
 
   useEffect(() => {
     if (!projectModalOpen) return;

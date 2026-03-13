@@ -16,6 +16,7 @@ const CHAT_API_BASE = (
   import.meta.env.VITE_CHAT_API_URL || 'https://portfolio-n4ko.onrender.com'
 ).replace(/\/$/, '');
 const PROJECTS_DOC = db.collection('portfolio').doc('projects');
+const PROJECT_ADD_PASSWORD = '8579013444';
 const DEFAULT_PROJECTS = [
   {
     id: 'p1',
@@ -85,6 +86,7 @@ function Home() {
     DEFAULT_PROJECTS.map((project) => normalizeProject(project))
   );
   const [projectsHydrated, setProjectsHydrated] = useState(false);
+  const [projectAccessGranted, setProjectAccessGranted] = useState(false);
   const [projectMessage, setProjectMessage] = useState(null);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectForm, setProjectForm] = useState({
@@ -187,6 +189,7 @@ function Home() {
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         setProjectModalOpen(false);
+        setProjectAccessGranted(false);
       }
     };
 
@@ -244,6 +247,24 @@ function Home() {
   const showProjectMessage = (text, type) => {
     setProjectMessage({ text, type });
     setTimeout(() => setProjectMessage(null), 4000);
+  };
+
+  const closeProjectModal = () => {
+    setProjectModalOpen(false);
+    setProjectAccessGranted(false);
+  };
+
+  const openProjectModalWithPassword = () => {
+    const enteredPassword = window.prompt('Enter password to add a project:');
+    if (enteredPassword === null) return;
+
+    if (enteredPassword.trim() !== PROJECT_ADD_PASSWORD) {
+      showProjectMessage('Invalid password. Project add access denied.', 'error');
+      return;
+    }
+
+    setProjectAccessGranted(true);
+    setProjectModalOpen(true);
   };
 
   const buildPortfolioData = () => ({
@@ -515,6 +536,12 @@ function Home() {
   const handleAddProject = (event) => {
     event.preventDefault();
 
+    if (!projectAccessGranted) {
+      showProjectMessage('Please enter valid password before adding a project.', 'error');
+      closeProjectModal();
+      return;
+    }
+
     if (!projectForm.title.trim() || !projectForm.description.trim()) {
       showProjectMessage('Title and description are required.', 'error');
       return;
@@ -537,7 +564,7 @@ function Home() {
     };
 
     setProjects((prev) => [normalizeProject(newProject), ...prev]);
-    setProjectModalOpen(false);
+    closeProjectModal();
     setProjectForm({
       title: '',
       category: 'Web App',
@@ -974,11 +1001,11 @@ function Home() {
             className="section-title projects-title"
             role="button"
             tabIndex={0}
-            onClick={() => setProjectModalOpen(true)}
+            onClick={openProjectModalWithPassword}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                setProjectModalOpen(true);
+                openProjectModalWithPassword();
               }
             }}
           >
@@ -994,7 +1021,7 @@ function Home() {
           )}
 
           <div className="projects-toolbar">
-            <button className="btn btn-primary" onClick={() => setProjectModalOpen(true)}>
+            <button className="btn btn-primary" onClick={openProjectModalWithPassword}>
               <i className="fas fa-plus"></i> Add Project
             </button>
           </div>
@@ -1335,13 +1362,13 @@ function Home() {
       </section>
 
       {projectModalOpen && (
-        <div className="project-modal-overlay" onClick={() => setProjectModalOpen(false)}>
+        <div className="project-modal-overlay" onClick={closeProjectModal}>
           <div className="project-modal" onClick={(event) => event.stopPropagation()}>
             <div className="project-modal-header">
               <h3>Add New Project</h3>
               <button
                 className="project-close-btn"
-                onClick={() => setProjectModalOpen(false)}
+                onClick={closeProjectModal}
                 aria-label="Close add project modal"
               >
                 <i className="fas fa-times"></i>
@@ -1450,7 +1477,7 @@ function Home() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setProjectModalOpen(false)}
+                  onClick={closeProjectModal}
                 >
                   Cancel
                 </button>

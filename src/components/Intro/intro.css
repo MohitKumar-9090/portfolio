@@ -1,0 +1,332 @@
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 16%, rgba(14, 165, 233, 0.22), transparent 42%),
+    radial-gradient(circle at 86% 84%, rgba(45, 212, 191, 0.2), transparent 40%),
+    linear-gradient(135deg, #f6fdff 0%, #e6f9ff 46%, #d8f4fa 100%);
+  color: #0f2d3a;
+}
+
+.intro-welcome-wrap,
+.intro-developer-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+.intro-welcome-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.intro-title {
+  margin: 0;
+  max-width: 940px;
+  font-size: clamp(1.8rem, 5vw, 3.3rem);
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  color: #083344;
+  text-shadow: 0 10px 28px rgba(14, 116, 144, 0.14);
+}
+
+.intro-subtitle {
+  margin: 1rem 0 0;
+  color: #155e75;
+  font-size: clamp(1rem, 2.2vw, 1.25rem);
+}
+
+.swipe-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2.4rem;
+}
+
+.swipe-indicator {
+  color: #0e7490;
+  font-size: 0.9rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.intro-cta,
+.enter-portfolio-btn,
+.music-toggle-btn {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease;
+}
+
+.intro-cta {
+  padding: 0.85rem 1.4rem;
+  color: #083344;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(8, 145, 178, 0.32);
+  font-weight: 700;
+}
+
+.intro-cta:hover,
+.enter-portfolio-btn:hover,
+.music-toggle-btn:hover {
+  transform: translateY(-2px);
+}
+
+.developer-intro {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.intro-particles,
+.intro-grid-overlay,
+.intro-content-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.intro-particles {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.24), transparent 38%),
+    radial-gradient(circle at 76% 78%, rgba(45, 212, 191, 0.22), transparent 44%);
+  filter: blur(2px);
+  animation: pulseGlow 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.intro-grid-overlay {
+  background-image:
+    linear-gradient(rgba(2, 132, 199, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(2, 132, 199, 0.08) 1px, transparent 1px);
+  background-size: 36px 36px;
+  opacity: 0.34;
+  mask-image: radial-gradient(circle at center, black 35%, transparent 86%);
+  pointer-events: none;
+}
+
+.intro-content-layer {
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.intro-browser-shell {
+  width: min(94vw, 980px);
+  border-radius: 24px;
+  border: 1px solid rgba(14, 116, 144, 0.2);
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 30px 90px rgba(8, 145, 178, 0.22);
+  overflow: hidden;
+}
+
+.intro-browser-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.85rem 1rem;
+  background: rgba(224, 247, 255, 0.95);
+  border-bottom: 1px solid rgba(8, 145, 178, 0.18);
+}
+
+.intro-browser-dots {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.intro-browser-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #99f6e4;
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.2);
+}
+
+.intro-browser-dots span:nth-child(2) {
+  background: #67e8f9;
+}
+
+.intro-browser-dots span:nth-child(3) {
+  background: #a5f3fc;
+}
+
+.intro-browser-url {
+  flex: 1;
+  text-align: left;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  color: #0f766e;
+  font-size: 0.86rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(45, 212, 191, 0.38);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intro-browser-content {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 1.2rem;
+  padding: 1.45rem;
+}
+
+.intro-browser-left {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.intro-kicker {
+  margin: 0;
+  color: #0891b2;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.developer-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 2.55rem);
+  line-height: 1.12;
+  color: #083344;
+}
+
+.developer-subtitle {
+  margin: 0;
+  color: #0f766e;
+  font-size: clamp(0.95rem, 1.7vw, 1.12rem);
+}
+
+.intro-browser-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.intro-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: rgba(236, 254, 255, 0.94);
+  border: 1px solid rgba(14, 116, 144, 0.16);
+  text-align: left;
+}
+
+.intro-stat-card strong {
+  color: #0c4a6e;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.intro-stat-label {
+  color: #155e75;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tech-reveal-row {
+  margin-top: 0.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+  max-width: 760px;
+}
+
+.tech-chip {
+  padding: 0.52rem 0.95rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: 1px solid rgba(8, 145, 178, 0.28);
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.9), rgba(204, 251, 241, 0.9));
+  color: #0f172a;
+}
+
+.intro-helper-text {
+  margin: 0.25rem 0 0;
+  font-size: 0.92rem;
+  color: #0e7490;
+}
+
+.enter-portfolio-btn {
+  margin-top: 1.1rem;
+  padding: 0.95rem 1.45rem;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #ecfeff;
+  background: linear-gradient(120deg, #0891b2, #14b8a6);
+  box-shadow: 0 10px 30px rgba(20, 184, 166, 0.34);
+}
+
+.music-toggle-btn {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  z-index: 4;
+  padding: 0.56rem 0.95rem;
+  color: #083344;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(8, 145, 178, 0.25);
+  font-size: 0.86rem;
+  font-weight: 700;
+  backdrop-filter: blur(6px);
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 840px) {
+  .intro-browser-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .intro-title {
+    max-width: 340px;
+  }
+
+  .intro-browser-shell {
+    border-radius: 16px;
+  }
+
+  .intro-browser-content {
+    padding: 1rem;
+  }
+
+  .enter-portfolio-btn {
+    width: 100%;
+    max-width: 280px;
+  }
+}

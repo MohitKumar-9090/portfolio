@@ -435,7 +435,7 @@ function Home() {
     rightY = addSectionTitle('Professional Summary', rightColX, rightY);
     rightY = addWrappedText(
       data?.about ||
-        'Technically driven Computer Science student focused on AI/ML and full-stack development.',
+        'Technically driven Computer Science student focused on Java and full-stack development.',
       rightColX,
       rightY,
       rightColWidth,
@@ -820,7 +820,7 @@ function Home() {
                 </div>
                 <div className="badge-content">
                   <strong>B.Tech CSE</strong>
-                  <p>AI & ML Specialization</p>
+                  <p>Java Development Specialization</p>
                 </div>
               </div>
             </div>
@@ -832,7 +832,7 @@ function Home() {
         <div className="container">
           <div className="section-title">
             <h2>About Me</h2>
-            <p>Passionate developer with a focus on AI/ML and modern web technologies</p>
+            <p>Passionate developer with a focus on Java and modern web technologies</p>
           </div>
 
           <div className="about-content">
@@ -1010,7 +1010,7 @@ function Home() {
             }}
           >
             <h2>Projects</h2>
-            <p>Modern showcase of AI/ML, web apps, and full-stack builds</p>
+            <p>Modern showcase of Java, web apps, and full-stack builds</p>
             <span className="projects-hint">
               <i className="fas fa-plus-circle"></i> Click here to add project
             </span>
@@ -1589,7 +1589,7 @@ function Home() {
                 />
                 <span>Mohit Pandey</span>
               </div>
-              <p>AI & ML Developer building intelligent solutions with modern technologies.</p>
+              <p>Java Developer building reliable solutions with modern technologies.</p>
               <div className="footer-mini-icons">
                 <a
                   href="https://github.com/MohitKumar-9090"

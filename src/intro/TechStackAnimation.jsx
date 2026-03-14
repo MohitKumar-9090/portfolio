@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-const STACK = ['Java', 'React', 'Node', 'MongoDB', 'DSA'];
+const STACK = ['Python', 'Machine Learning', 'Deep Learning', 'TensorFlow', 'Data Science'];
 
 function TechStackAnimation() {
   return (

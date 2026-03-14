@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-const techItems = ['Java', 'React', 'Node.js', 'Python', 'DSA'];
+const techItems = ['Python', 'Machine Learning', 'Deep Learning', 'TensorFlow', 'Data Science'];
 
 function TechStackReveal() {
   return (

@@ -369,8 +369,16 @@ app.patch('/api/reviews/:id/hide', async (req, res) => {
   }
 
   const reviewId = (req.params?.id || '').trim();
+  const deletePassword = String(req.body?.password || '').trim();
+  const expectedDeletePassword = String(process.env.REVIEW_DELETE_PASSWORD || 'pass-85790').trim();
+
   if (!reviewId) {
     res.status(400).json({ error: 'Review id is required.' });
+    return;
+  }
+
+  if (!deletePassword || deletePassword !== expectedDeletePassword) {
+    res.status(403).json({ error: 'Invalid delete password.' });
     return;
   }
 

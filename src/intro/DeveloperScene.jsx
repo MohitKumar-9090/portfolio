@@ -106,12 +106,16 @@ function DeveloperScene({ onEnter, reducedMotion }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
         >
-          Java Developer | Problem Solver
+          AI/ML Engineer | Problem Solver
         </motion.p>
 
         <div className="intro-typed-wrap">
           <ReactTyped
-            strings={['Building scalable applications', 'Loves clean code', 'Full Stack Developer']}
+            strings={[
+              'Building intelligent AI/ML solutions',
+              'Turning data into real impact',
+              'Python and Machine Learning Engineer',
+            ]}
             typeSpeed={40}
             backSpeed={24}
             backDelay={850}

@@ -2,11 +2,11 @@ export const SITE_CONFIG = {
   siteName: 'Mohit Pandey Portfolio',
   siteUrl: (import.meta.env.VITE_SITE_URL || 'https://example.com').replace(/\/$/, ''),
   author: 'Mohit Pandey',
-  title: 'Mohit Pandey | Java Developer',
+  title: 'Mohit Pandey | AI/ML Engineer',
   description:
-    'Portfolio of Mohit Pandey, Java-focused developer showcasing projects, skills, and engineering work.',
+    'Portfolio of Mohit Pandey, AI/ML-focused engineer showcasing projects, skills, and intelligent solutions.',
   keywords:
-    'Mohit Pandey, Java developer, React portfolio, web developer, projects, software engineer',
+    'Mohit Pandey, AI ML engineer, machine learning portfolio, Python developer, projects, software engineer',
   githubUsername: import.meta.env.VITE_GITHUB_USERNAME || 'MohitKumar-9090',
   googleAnalyticsId: import.meta.env.VITE_GA_MEASUREMENT_ID || '',
 };

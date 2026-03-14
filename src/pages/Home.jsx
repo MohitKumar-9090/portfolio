@@ -279,7 +279,7 @@ function Home() {
     about:
       'Computer Science Engineering student specializing in AI and ML, focused on building real-world intelligent solutions.',
     skills: [
-      'Java',
+      'Deep Learning',
       'C',
       'Python',
       'SQL',
@@ -435,7 +435,7 @@ function Home() {
     rightY = addSectionTitle('Professional Summary', rightColX, rightY);
     rightY = addWrappedText(
       data?.about ||
-        'Technically driven Computer Science student focused on Java and full-stack development.',
+        'Technically driven Computer Science student focused on AI, ML, and real-world intelligent systems.',
       rightColX,
       rightY,
       rightColWidth,
@@ -667,6 +667,9 @@ function Home() {
   const handleDeleteReview = async (reviewId) => {
     if (!confirm('Are you sure you want to delete this review?')) return;
 
+    const deletePassword = prompt('Enter delete password to remove this review:');
+    if (deletePassword === null) return;
+
     try {
       if (!CHAT_API_BASE) {
         throw new Error('Review backend is not configured.');
@@ -674,6 +677,12 @@ function Home() {
 
       const response = await fetch(`${CHAT_API_BASE}/api/reviews/${reviewId}/hide`, {
         method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          password: deletePassword.trim(),
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -820,7 +829,7 @@ function Home() {
                 </div>
                 <div className="badge-content">
                   <strong>B.Tech CSE</strong>
-                  <p>Java Development Specialization</p>
+                  <p>AI & ML Specialization</p>
                 </div>
               </div>
             </div>
@@ -832,7 +841,7 @@ function Home() {
         <div className="container">
           <div className="section-title">
             <h2>About Me</h2>
-            <p>Passionate developer with a focus on Java and modern web technologies</p>
+            <p>Passionate AI/ML engineer focused on intelligent systems and modern technologies</p>
           </div>
 
           <div className="about-content">
@@ -1010,7 +1019,7 @@ function Home() {
             }}
           >
             <h2>Projects</h2>
-            <p>Modern showcase of Java, web apps, and full-stack builds</p>
+            <p>Modern showcase of AI/ML, web apps, and intelligent builds</p>
             <span className="projects-hint">
               <i className="fas fa-plus-circle"></i> Click here to add project
             </span>
@@ -1589,7 +1598,7 @@ function Home() {
                 />
                 <span>Mohit Pandey</span>
               </div>
-              <p>Java Developer building reliable solutions with modern technologies.</p>
+              <p>AI/ML Engineer building reliable intelligent solutions with modern technologies.</p>
               <div className="footer-mini-icons">
                 <a
                   href="https://github.com/MohitKumar-9090"
